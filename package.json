@@ -1,0 +1,47 @@
+{
+  "name": "court-connect-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "npx tsx watch src/server.ts",
+    "build": "tsup src/server.ts src/app.ts --format esm --clean && copyfiles -u 1 src/static/**/* dist",
+    "start": "node dist/server.js",
+    "seed:admin": "npx tsx  src/scripts/seedAdmin.ts",
+    "postinstall": "prisma generate"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "packageManager": "pnpm@10.26.2",
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^25.0.3",
+    "@types/nodemailer": "^7.0.4",
+    "@types/pg": "^8.16.0",
+    "copyfiles": "^2.4.1",
+    "prisma": "^7.3.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0",
+    "bcryptjs": "^3.0.3",
+    "better-auth": "^1.4.9",
+    "cloudinary": "^2.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
+    "nodemailer": "^7.0.12",
+    "pg": "^8.16.3"
+  }
+}

@@ -1,0 +1,83 @@
+model User {
+  id               String                 @id @default(uuid()) @db.Uuid
+  email            String                 @unique
+  emailVerified    Boolean                @default(false)
+  name             String
+  role             UserRole               @default(USER)
+  phone            String?
+  avatarUrl        String?
+  avatarPublicId   String?
+  stripeCustomerId String?                @unique
+  memberSince      DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  deletedAt        DateTime?
+
+  accounts         Account[]
+  sessions         Session[]
+  createdCourts    Court[]                @relation("CourtOrganizer")
+  memberships      CourtMember[]
+  bookings         Booking[]              @relation("BookingUser")
+  approvedBookings Booking[]              @relation("BookingApprover")
+  statusChanges    BookingStatusHistory[] @relation("BookingStatusChangedBy")
+  createdCoupons   Coupon[]               @relation("CouponCreator")
+  redemptions      CouponRedemption[]     @relation("CouponRedemptionUser")
+  paymentIntents   PaymentIntent[]        @relation("PaymentIntentUser")
+  payments         Payment[]              @relation("PaymentUser")
+  uploadedMedia    CourtMedia[]           @relation("CourtMediaUploader")
+  publishedPosts   Announcement[]         @relation("AnnouncementPublisher")
+  approvedRefunds  Refund[]               @relation("RefundApprover")
+  auditLogs        AuditLog[]             @relation("AuditLogActor")
+
+  @@map("users")
+}
+
+model Account {
+  id                    String    @id @default(uuid()) @db.Uuid
+  userId                String    @db.Uuid
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  passwordHash          String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  token      String   @unique
+  expiresAt  DateTime
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Verification {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
+  @@map("verifications")
+}
