@@ -1,11 +1,11 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma.js";
-import config from "../config/index.js";
+import { envVars } from "../config/env";
 
 export const auth = betterAuth({
-  baseURL: config.better_auth_url,
-  secret: config.better_auth_secret,
+  baseURL: envVars.BETTER_AUTH_URL,
+  secret: envVars.BETTER_AUTH_SECRET,
 
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -30,15 +30,12 @@ export const auth = betterAuth({
         type: "string",
         required: false,
       },
-      avatarPublicId: {
-        type: "string",
+      isApproved: {
+        type: "boolean",
         required: false,
+        defaultValue: false,
       },
       stripeCustomerId: {
-        type: "string",
-        required: false,
-      },
-      memberSince: {
         type: "string",
         required: false,
       },

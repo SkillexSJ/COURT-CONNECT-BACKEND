@@ -8,13 +8,13 @@ import { Server } from "http";
  */
 import app from "./app.js";
 import { prisma } from "./lib/prisma.js";
+import { envVars } from "./config/env.js";
 
 /**
  * CONFIG
  */
-import config from "./config/index.js";
 
-const PORT = config.port;
+const PORT = envVars.PORT;
 let server: Server;
 
 async function main() {

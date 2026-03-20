@@ -25,11 +25,11 @@ import { OrganizerRoutes } from "./modules/organizer/organizer.route.js";
  * MIDDLEWARES
  */
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { envVars } from "./config/env.js";
 
 /**
  * CONFIG
  */
-import config from "./config/index.js";
 
 const app: Application = express();
 
@@ -37,10 +37,7 @@ app.set("trust proxy", true);
 
 app.use(
   cors({
-    origin: [
-      config.client_url,
-      "http://192.168.9.142:3000",
-    ],
+    origin: [envVars.CLIENT_URL, "http://192.168.9.142:3000"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   }),
