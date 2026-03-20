@@ -6,13 +6,13 @@ import { Server } from "http";
 /**
  * LIBS
  */
-import app from "./app";
-import { prisma } from "./lib/prisma";
+import app from "./app.js";
+import { prisma } from "./lib/prisma.js";
 
 /**
  * CONFIG
  */
-import config from "./config";
+import config from "./config/index.js";
 
 const PORT = config.port;
 let server: Server;
@@ -24,7 +24,7 @@ async function main() {
     console.log("Connected to the database successfully.");
 
     server = app.listen(PORT, () => {
-      console.log(`SKILLBRIDGE Server is running on http://localhost:${PORT}`);
+      console.log(`CourtConnect Server is running on http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("An error occurred:", error);

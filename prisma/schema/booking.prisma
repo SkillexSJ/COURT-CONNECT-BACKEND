@@ -1,0 +1,36 @@
+model Booking {
+  id             String        @id @default(uuid()) @db.Uuid
+  bookingCode    String        @unique
+  userId         String        @db.Uuid
+  courtId        String        @db.Uuid
+  couponId       String?       @db.Uuid
+  bookingDate    DateTime      @db.Date
+  status         BookingStatus @default(PENDING)
+  totalAmount    Decimal       @db.Decimal(12, 2)
+  
+  paymentId      String?       // Reference to Stripe/PayPal transaction
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user           User          @relation("BookingUser", fields: [userId], references: [id])
+  court          Court         @relation(fields: [courtId], references: [id])
+  coupon         Coupon?       @relation(fields: [couponId], references: [id])
+  slots          BookingSlot[]
+
+  @@map("bookings")
+}
+
+model BookingSlot {
+  id          String   @id @default(uuid()) @db.Uuid
+  bookingId   String   @db.Uuid
+  courtId     String   @db.Uuid
+  bookingDate DateTime @db.Date
+  startMinute Int
+  endMinute   Int
+
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([courtId, bookingDate, startMinute])
+  @@map("booking_slots")
+}

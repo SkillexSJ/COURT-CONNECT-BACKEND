@@ -8,27 +8,27 @@ import { toNodeHandler } from "better-auth/node";
 /**
  * LIBS
  */
-import { auth } from "./lib/auth";
+import { auth } from "./lib/auth.js";
 
 /**
  * ROUTES
  */
-// import { UserRoutes } from "./modules/user/user.route";
-// import { TutorRoutes } from "./modules/tutor/tutor.route";
-// import { BookingRoutes } from "./modules/booking/booking.route";
-// import { AdminRoutes } from "./modules/admin/admin.route";
-// import { CategoryRoutes } from "./modules/category/category.route";
-// import { ReviewRoutes } from "./modules/review/review.route";
+import { UserRoutes } from "./modules/user/user.route.js";
+import { CourtRoutes } from "./modules/court/court.route.js";
+import { ScheduleRoutes } from "./modules/schedule/schedule.route.js";
+import { BookingRoutes } from "./modules/booking/booking.route.js";
+import { AnnouncementRoutes } from "./modules/announcement/announcement.route.js";
+import { AdminRoutes } from "./modules/admin/admin.route.js";
 
 /**
  * MIDDLEWARES
  */
-import { errorHandler } from "./middlewares/errorHandler";
+import { errorHandler } from "./middlewares/errorHandler.js";
 
 /**
  * CONFIG
  */
-import config from "./config";
+import config from "./config/index.js";
 
 const app: Application = express();
 
@@ -38,7 +38,7 @@ app.use(
   cors({
     origin: [
       config.client_url,
-      "http://192.168.9.142:3000", // Allow mobile access
+      "http://192.168.9.142:3000",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
@@ -47,16 +47,18 @@ app.use(
 
 app.use(express.json());
 
+// BetterAuth handler
 app.all("/api/auth/{*any}", toNodeHandler(auth));
 
-//  Routes
-// app.use("/api/users", UserRoutes);
-// app.use("/api/tutors", TutorRoutes);
-// app.use("/api/bookings", BookingRoutes);
-// app.use("/api/admin", AdminRoutes);
-// app.use("/api/categories", CategoryRoutes);
-// app.use("/api/reviews", ReviewRoutes);
+// Module routes
+app.use("/api/users", UserRoutes);
+app.use("/api/courts", CourtRoutes);
+app.use("/api", ScheduleRoutes);
+app.use("/api/bookings", BookingRoutes);
+app.use("/api/announcements", AnnouncementRoutes);
+app.use("/api/admin", AdminRoutes);
 
+// Health check
 app.get("/health", (_req, res) => {
   res.status(200).send("OK");
 });
@@ -65,6 +67,7 @@ app.get("/", (_req, res) => {
   res.send("CourtConnect API is running");
 });
 
+// Error handler (must be last)
 app.use(errorHandler);
 
 export default app;

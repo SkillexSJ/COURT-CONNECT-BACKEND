@@ -1,33 +1,24 @@
 model User {
-  id               String                 @id @default(uuid()) @db.Uuid
-  email            String                 @unique
-  emailVerified    Boolean                @default(false)
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String    @unique
+  emailVerified    Boolean   @default(false)
   name             String
-  role             UserRole               @default(USER)
+  role             UserRole  @default(USER)
   phone            String?
   avatarUrl        String?
-  avatarPublicId   String?
-  stripeCustomerId String?                @unique
-  memberSince      DateTime?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  isApproved       Boolean   @default(false) // Admin approval gate for ORGANIZERs
+  stripeCustomerId String?   @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
 
+  // Essential Relations
   accounts         Account[]
   sessions         Session[]
-  createdCourts    Court[]                @relation("CourtOrganizer")
-  memberships      CourtMember[]
-  bookings         Booking[]              @relation("BookingUser")
-  approvedBookings Booking[]              @relation("BookingApprover")
-  statusChanges    BookingStatusHistory[] @relation("BookingStatusChangedBy")
-  createdCoupons   Coupon[]               @relation("CouponCreator")
-  redemptions      CouponRedemption[]     @relation("CouponRedemptionUser")
-  paymentIntents   PaymentIntent[]        @relation("PaymentIntentUser")
-  payments         Payment[]              @relation("PaymentUser")
-  uploadedMedia    CourtMedia[]           @relation("CourtMediaUploader")
-  publishedPosts   Announcement[]         @relation("AnnouncementPublisher")
-  approvedRefunds  Refund[]               @relation("RefundApprover")
-  auditLogs        AuditLog[]             @relation("AuditLogActor")
+  
+  // Business Relations
+  managedCourts    Court[]   @relation("CourtOrganizer")
+  bookings         Booking[] @relation("BookingUser")
 
   @@map("users")
 }

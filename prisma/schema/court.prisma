@@ -1,0 +1,56 @@
+model Court {
+  id            String             @id @default(uuid()) @db.Uuid
+  organizerId   String             @db.Uuid
+  name          String
+  slug          String             @unique
+  type          String             // e.g., "Tennis", "Football"
+  locationLabel String
+  description   String?
+  basePrice     Decimal            @db.Decimal(12, 2)
+  latitude      Float?             // For "Courts Near Me" geo-search
+  longitude     Float?             // For "Courts Near Me" geo-search
+  status        CourtStatus        @default(ACTIVE)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  organizer     User               @relation("CourtOrganizer", fields: [organizerId], references: [id])
+  media         CourtMedia[]
+  amenities     Amenity[]          
+  slotTemplates CourtSlotTemplate[]
+  bookings      Booking[]
+
+  @@map("courts")
+}
+
+model CourtMedia {
+  id        String  @id @default(uuid()) @db.Uuid
+  courtId   String  @db.Uuid
+  url       String
+  publicId  String
+  isPrimary Boolean @default(false)
+  court     Court   @relation(fields: [courtId], references: [id], onDelete: Cascade)
+
+  @@map("court_media")
+}
+
+model Amenity {
+  id     String  @id @default(uuid()) @db.Uuid
+  name   String  @unique
+  icon   String?
+  courts Court[]
+
+  @@map("amenities")
+}
+
+model CourtSlotTemplate {
+  id            String    @id @default(uuid()) @db.Uuid
+  courtId       String    @db.Uuid
+  dayOfWeek     Int       // 0-6
+  startMinute   Int
+  endMinute     Int
+  priceOverride Decimal?  @db.Decimal(12, 2)
+  isActive      Boolean   @default(true) // Toggle without deleting
+  court         Court     @relation(fields: [courtId], references: [id], onDelete: Cascade)
+
+  @@map("court_slot_templates")
+}
