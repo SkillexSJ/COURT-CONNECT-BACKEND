@@ -4,6 +4,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { Prisma } from "../generated/prisma/client";
+import { ZodError } from "zod";
 import multer from "multer";
 
 function errorHandler(
@@ -21,9 +22,23 @@ function errorHandler(
   }
 
   // ================================
+  // Zod Validation Errors
+  // ================================
+  if (err instanceof ZodError) {
+    statusCode = 400;
+    message = "Validation failed";
+    const zodErr = err as any;
+    const errorsList = zodErr.errors || zodErr.issues || [];
+    details = errorsList.map((e: any) => ({
+      field: e.path ? e.path.join(".") : "unknown",
+      message: e.message,
+    }));
+  }
+
+  // ================================
   // Prisma Validation Error
   // ================================
-  if (err instanceof Prisma.PrismaClientValidationError) {
+  else if (err instanceof Prisma.PrismaClientValidationError) {
     statusCode = 400;
     message = "Invalid request data";
     details =

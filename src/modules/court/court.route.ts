@@ -1,6 +1,8 @@
 import { Router } from "express";
 import authMiddleware, { optionalAuth } from "../../middlewares/auth.js";
 import authorize from "../../middlewares/authorize.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
+import { createCourtSchema, updateCourtSchema } from "./court.validation.js";
 import CourtController from "./court.controller.js";
 
 const router: Router = Router();
@@ -20,12 +22,14 @@ router.post(
   "/",
   authMiddleware(),
   authorize("ORGANIZER", "ADMIN"),
+  validateRequest(createCourtSchema),
   CourtController.createCourt,
 );
 router.patch(
   "/:courtId",
   authMiddleware(),
   authorize("ORGANIZER", "ADMIN"),
+  validateRequest(updateCourtSchema),
   CourtController.updateCourt,
 );
 router.delete(

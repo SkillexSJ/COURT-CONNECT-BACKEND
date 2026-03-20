@@ -1,12 +1,19 @@
 import { Router } from "express";
 import authMiddleware from "../../middlewares/auth.js";
 import authorize from "../../middlewares/authorize.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
+import { createBookingSchema } from "./booking.validation.js";
 import BookingController from "./booking.controller.js";
 
 const router: Router = Router();
 
 // User
-router.post("/", authMiddleware(), BookingController.createBooking);
+router.post(
+  "/",
+  authMiddleware(),
+  validateRequest(createBookingSchema),
+  BookingController.createBooking,
+);
 router.get("/my", authMiddleware(), BookingController.getUserBookings);
 router.get("/:bookingId", authMiddleware(), BookingController.getBookingById);
 router.patch(

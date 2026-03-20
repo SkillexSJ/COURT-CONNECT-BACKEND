@@ -1,5 +1,5 @@
-import { prisma } from "../../lib/prisma.js";
-import AppError from "../../helpers/AppError.js";
+import AppError from "../../helpers/AppError";
+import { prisma } from "../../lib/prisma";
 
 const OrganizerService = {
   /**
@@ -25,7 +25,10 @@ const OrganizerService = {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new AppError(404, "User not found");
     if (user.role !== "ORGANIZER" && user.role !== "ADMIN") {
-      throw new AppError(403, "Only users with ORGANIZER role can create an organizer profile");
+      throw new AppError(
+        403,
+        "Only users with ORGANIZER role can create an organizer profile",
+      );
     }
 
     return prisma.organizer.create({
