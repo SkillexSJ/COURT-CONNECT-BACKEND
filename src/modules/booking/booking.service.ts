@@ -1,14 +1,8 @@
 import { prisma } from "../../lib/prisma.js";
 import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
 import AppError from "../../helpers/AppError.js";
-import {
-  ACTIVE_BOOKING_STATUSES,
-  generateBookingCode,
-} from "../../shared/constants.js";
-import type { Prisma } from "../../generated/prisma/client.js";
-import type { BookingStatus } from "../../generated/prisma/enums.js";
-
-type Decimal = Prisma.Decimal;
+import { generateBookingCode } from "../../shared/constants.js";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
 
 const BookingService = {
   /**
@@ -20,18 +14,17 @@ const BookingService = {
       courtId: string;
       bookingDate: string;
       slotTemplateIds: string[];
-      notes?: string;
       couponCode?: string;
     },
   ) {
-    const { courtId, bookingDate, slotTemplateIds, notes } = data;
+    const { courtId, bookingDate, slotTemplateIds } = data;
 
     if (!slotTemplateIds || slotTemplateIds.length === 0) {
       throw new AppError(400, "At least one slot must be selected");
     }
 
     const court = await prisma.court.findUnique({ where: { id: courtId } });
-    if (!court || court.deletedAt) throw new AppError(404, "Court not found");
+    if (!court) throw new AppError(404, "Court not found");
     if (court.status !== "ACTIVE") throw new AppError(400, "Court is not available for booking");
 
     const targetDate = new Date(bookingDate);
@@ -56,9 +49,8 @@ const BookingService = {
           courtId,
           bookingDate: targetDate,
           startMinute: t.startMinute,
-          endMinute: t.endMinute,
           booking: {
-            status: { in: ACTIVE_BOOKING_STATUSES as unknown as BookingStatus[] },
+            status: { in: ["PENDING", "PAID"] },
           },
         },
       });
@@ -72,26 +64,40 @@ const BookingService = {
     }
 
     // Calculate pricing
-    const subtotal = templates.reduce((sum, t) => {
+    const totalAmount = templates.reduce((sum, t) => {
       const price = t.priceOverride ?? court.basePrice;
       return sum + Number(price);
     }, 0);
 
+    // Handle coupon
+    let couponId: string | null = null;
+    if (data.couponCode) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: data.couponCode },
+      });
+      if (coupon && coupon.isActive) {
+        if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+          throw new AppError(400, "Coupon has expired");
+        }
+        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+          throw new AppError(400, "Coupon usage limit reached");
+        }
+        couponId = coupon.id;
+      }
+    }
+
     const bookingCode = generateBookingCode();
 
-    // Create booking + slots + initial status in a transaction
+    // Create booking + slots in a transaction
     const booking = await prisma.$transaction(async (tx) => {
       const newBooking = await tx.booking.create({
         data: {
           bookingCode,
           userId,
           courtId,
+          couponId,
           bookingDate: targetDate,
-          subtotal,
-          discountAmount: 0,
-          totalAmount: subtotal,
-          currency: court.currency,
-          notes: notes ?? null,
+          totalAmount,
         },
       });
 
@@ -100,24 +106,19 @@ const BookingService = {
         data: templates.map((t) => ({
           bookingId: newBooking.id,
           courtId,
-          slotTemplateId: t.id,
           bookingDate: targetDate,
           startMinute: t.startMinute,
           endMinute: t.endMinute,
-          unitPrice: t.priceOverride ?? court.basePrice,
         })),
       });
 
-      // Initial status history
-      await tx.bookingStatusHistory.create({
-        data: {
-          bookingId: newBooking.id,
-          changedById: userId,
-          fromStatus: null,
-          toStatus: "PENDING",
-          reason: "Booking created",
-        },
-      });
+      // Increment coupon usage if used
+      if (couponId) {
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
 
       return newBooking;
     });
@@ -168,16 +169,14 @@ const BookingService = {
       where: { id: bookingId },
       include: {
         court: {
-          select: { id: true, name: true, slug: true, type: true, organizerId: true },
-        },
-        slots: { orderBy: { startMinute: "asc" } },
-        statusHistory: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            changedBy: { select: { id: true, name: true } },
+          select: {
+            id: true, name: true, slug: true, type: true, organizerId: true,
+            organizer: { select: { userId: true } },
           },
         },
+        slots: { orderBy: { startMinute: "asc" } },
         user: { select: { id: true, name: true, email: true } },
+        coupon: { select: { code: true, discountType: true, discountValue: true } },
       },
     });
 
@@ -185,10 +184,10 @@ const BookingService = {
 
     // Access control: user can see own, organizer can see their court's, admin sees all
     const isOwner = booking.userId === userId;
-    const isOrganizer = booking.court.organizerId === userId;
+    const isOrganizerOwner = booking.court.organizer.userId === userId;
     const isAdmin = userRole === "ADMIN";
 
-    if (!isOwner && !isOrganizer && !isAdmin) {
+    if (!isOwner && !isOrganizerOwner && !isAdmin) {
       throw new AppError(403, "Access denied");
     }
 
@@ -196,12 +195,12 @@ const BookingService = {
   },
 
   /**
-   * Approve a booking (Organizer/Admin).
+   * Approve a booking → set status to PAID (Organizer/Admin).
    */
-  async approveBooking(bookingId: string, approverId: string) {
+  async approveBooking(bookingId: string, userId: string) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { court: { select: { organizerId: true } } },
+      include: { court: { select: { organizer: { select: { userId: true } } } } },
     });
 
     if (!booking) throw new AppError(404, "Booking not found");
@@ -209,51 +208,19 @@ const BookingService = {
       throw new AppError(400, `Cannot approve a booking with status: ${booking.status}`);
     }
 
-    return prisma.$transaction(async (tx) => {
-      const updated = await tx.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: "APPROVED",
-          approvedById: approverId,
-          approvedAt: new Date(),
-        },
-      });
-
-      await tx.bookingStatusHistory.create({
-        data: {
-          bookingId,
-          changedById: approverId,
-          fromStatus: "PENDING",
-          toStatus: "APPROVED",
-          reason: "Booking approved",
-        },
-      });
-
-      // Auto-create CourtMember if user doesn't already have membership
-      await tx.courtMember.upsert({
-        where: {
-          userId_courtId: {
-            userId: booking.userId,
-            courtId: booking.courtId,
-          },
-        },
-        create: {
-          userId: booking.userId,
-          courtId: booking.courtId,
-          source: "BOOKING_APPROVED",
-          status: "ACTIVE",
-        },
-        update: {},
-      });
-
-      return updated;
+    return prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: "PAID",
+        paidAt: new Date(),
+      },
     });
   },
 
   /**
-   * Reject a booking (Organizer/Admin).
+   * Reject a booking → set status to CANCELLED and free slots (Organizer/Admin).
    */
-  async rejectBooking(bookingId: string, approverId: string, reason?: string) {
+  async rejectBooking(bookingId: string, userId: string, reason?: string) {
     const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
 
     if (!booking) throw new AppError(404, "Booking not found");
@@ -264,17 +231,7 @@ const BookingService = {
     return prisma.$transaction(async (tx) => {
       const updated = await tx.booking.update({
         where: { id: bookingId },
-        data: { status: "REJECTED" },
-      });
-
-      await tx.bookingStatusHistory.create({
-        data: {
-          bookingId,
-          changedById: approverId,
-          fromStatus: "PENDING",
-          toStatus: "REJECTED",
-          reason: reason || "Booking rejected",
-        },
+        data: { status: "CANCELLED" },
       });
 
       // Remove booking slots so the time becomes available again
@@ -295,28 +252,14 @@ const BookingService = {
     const canCancel = booking.userId === userId || userRole === "ADMIN";
     if (!canCancel) throw new AppError(403, "You can only cancel your own bookings");
 
-    const cancellable = ["PENDING", "APPROVED", "PAYMENT_PENDING"];
-    if (!cancellable.includes(booking.status)) {
+    if (!["PENDING", "PAID"].includes(booking.status)) {
       throw new AppError(400, `Cannot cancel a booking with status: ${booking.status}`);
     }
 
     return prisma.$transaction(async (tx) => {
       const updated = await tx.booking.update({
         where: { id: bookingId },
-        data: {
-          status: "CANCELLED",
-          cancelledAt: new Date(),
-        },
-      });
-
-      await tx.bookingStatusHistory.create({
-        data: {
-          bookingId,
-          changedById: userId,
-          fromStatus: booking.status,
-          toStatus: "CANCELLED",
-          reason: "Booking cancelled by user",
-        },
+        data: { status: "CANCELLED" },
       });
 
       // Free up slots
@@ -329,12 +272,13 @@ const BookingService = {
   /**
    * Get bookings for a specific court (Organizer dashboard).
    */
-  async getCourtBookings(courtId: string, organizerId: string, userRole: string, query: QueryParams) {
+  async getCourtBookings(courtId: string, userId: string, userRole: string, query: QueryParams) {
     // Verify organizer owns this court (unless admin)
     if (userRole !== "ADMIN") {
+      const organizer = await getOrganizerByUserId(userId);
       const court = await prisma.court.findUnique({ where: { id: courtId } });
       if (!court) throw new AppError(404, "Court not found");
-      if (court.organizerId !== organizerId) {
+      if (court.organizerId !== organizer.id) {
         throw new AppError(403, "Access denied");
       }
     }

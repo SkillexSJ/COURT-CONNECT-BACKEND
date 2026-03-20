@@ -1,40 +1,27 @@
 import { prisma } from "../../lib/prisma.js";
 import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
 import AppError from "../../helpers/AppError.js";
-import { slugify } from "../../shared/constants.js";
 
 const AnnouncementService = {
   /**
    * Create an announcement (Admin).
    */
   async createAnnouncement(
-    publishedById: string,
+    _adminId: string,
     data: {
       title: string;
       content: string;
-      coverImageUrl?: string;
-      coverPublicId?: string;
-      isPinned?: boolean;
+      type?: "INFO" | "MAINTENANCE" | "PROMOTION";
+      imageUrl?: string;
       isPublished?: boolean;
     },
   ) {
-    const baseSlug = slugify(data.title);
-    let slug = baseSlug;
-    let counter = 1;
-    while (await prisma.announcement.findUnique({ where: { slug } })) {
-      slug = `${baseSlug}-${counter}`;
-      counter++;
-    }
-
     return prisma.announcement.create({
       data: {
-        publishedById,
         title: data.title,
-        slug,
         content: data.content,
-        coverImageUrl: data.coverImageUrl ?? null,
-        coverPublicId: data.coverPublicId ?? null,
-        isPinned: data.isPinned ?? false,
+        type: data.type ?? "INFO",
+        imageUrl: data.imageUrl ?? null,
         isPublished: data.isPublished ?? false,
         publishedAt: data.isPublished ? new Date() : null,
       },
@@ -45,9 +32,9 @@ const AnnouncementService = {
    * Get all announcements (public sees published only, admin sees all).
    */
   async getAllAnnouncements(query: QueryParams, userRole?: string) {
-    const qb = new QueryBuilder(query, { defaultSort: "-publishedAt" })
+    const qb = new QueryBuilder(query, { defaultSort: "-createdAt" })
       .search(["title", "content"])
-      .filter(["isPinned", "isPublished"])
+      .filter(["type", "isPublished"])
       .sort()
       .paginate();
 
@@ -67,14 +54,12 @@ const AnnouncementService = {
         select: {
           id: true,
           title: true,
-          slug: true,
           content: true,
-          coverImageUrl: true,
-          isPinned: true,
+          type: true,
+          imageUrl: true,
           isPublished: true,
           publishedAt: true,
           createdAt: true,
-          publishedBy: { select: { id: true, name: true } },
         },
       }),
       prisma.announcement.count({ where }),
@@ -84,14 +69,11 @@ const AnnouncementService = {
   },
 
   /**
-   * Get a single announcement by slug.
+   * Get a single announcement by ID.
    */
-  async getAnnouncementBySlug(slug: string) {
+  async getAnnouncementBySlug(announcementId: string) {
     const announcement = await prisma.announcement.findUnique({
-      where: { slug },
-      include: {
-        publishedBy: { select: { id: true, name: true, avatarUrl: true } },
-      },
+      where: { id: announcementId },
     });
 
     if (!announcement) throw new AppError(404, "Announcement not found");
@@ -106,9 +88,8 @@ const AnnouncementService = {
     data: Partial<{
       title: string;
       content: string;
-      coverImageUrl: string;
-      coverPublicId: string;
-      isPinned: boolean;
+      type: "INFO" | "MAINTENANCE" | "PROMOTION";
+      imageUrl: string;
       isPublished: boolean;
     }>,
   ) {
@@ -120,22 +101,6 @@ const AnnouncementService = {
     // If publishing for the first time
     if (data.isPublished && !existing.isPublished) {
       updateData.publishedAt = new Date();
-    }
-
-    // If title changed, update slug
-    if (data.title && data.title !== existing.title) {
-      const baseSlug = slugify(data.title);
-      let slug = baseSlug;
-      let counter = 1;
-      while (
-        await prisma.announcement.findFirst({
-          where: { slug, id: { not: announcementId } },
-        })
-      ) {
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-      }
-      updateData.slug = slug;
     }
 
     return prisma.announcement.update({

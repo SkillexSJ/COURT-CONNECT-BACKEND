@@ -2,24 +2,24 @@ import { prisma } from "../../lib/prisma.js";
 import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
 import AppError from "../../helpers/AppError.js";
 import { slugify } from "../../shared/constants.js";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
 
 const CourtService = {
   /**
    * Create a new court (Organizer).
    */
-  async createCourt(organizerId: string, data: {
+  async createCourt(userId: string, data: {
     name: string;
     type: string;
-    surface: string;
     locationLabel: string;
     description?: string;
     basePrice: number;
-    currency: string;
-    capacity: number;
-    isIndoor?: boolean;
+    latitude?: number;
+    longitude?: number;
   }) {
+    const organizer = await getOrganizerByUserId(userId);
+
     const baseSlug = slugify(data.name);
-    // Ensure unique slug
     let slug = baseSlug;
     let counter = 1;
     while (await prisma.court.findUnique({ where: { slug } })) {
@@ -29,17 +29,15 @@ const CourtService = {
 
     const court = await prisma.court.create({
       data: {
-        organizerId,
+        organizerId: organizer.id,
         slug,
         name: data.name,
         type: data.type,
-        surface: data.surface,
         locationLabel: data.locationLabel,
         description: data.description ?? null,
         basePrice: data.basePrice,
-        currency: data.currency,
-        capacity: data.capacity,
-        isIndoor: data.isIndoor ?? false,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
       },
     });
 
@@ -51,9 +49,8 @@ const CourtService = {
    */
   async getAllCourts(query: QueryParams) {
     const qb = new QueryBuilder(query, { defaultSort: "-createdAt", maxLimit: 50 })
-      .search(["name", "locationLabel", "type", "surface"])
-      .filter(["status", "type", "surface", "isIndoor", "basePrice"])
-      .softDelete()
+      .search(["name", "locationLabel", "type"])
+      .filter(["status", "type", "basePrice"])
       .sort()
       .paginate();
 
@@ -70,21 +67,23 @@ const CourtService = {
           slug: true,
           name: true,
           type: true,
-          surface: true,
           locationLabel: true,
           basePrice: true,
-          currency: true,
-          capacity: true,
+          latitude: true,
+          longitude: true,
           status: true,
-          isIndoor: true,
           createdAt: true,
           organizer: {
-            select: { id: true, name: true },
+            select: {
+              id: true,
+              businessName: true,
+              user: { select: { name: true } },
+            },
           },
           media: {
             where: { isPrimary: true },
             take: 1,
-            select: { secureUrl: true },
+            select: { url: true },
           },
         },
       }),
@@ -102,25 +101,28 @@ const CourtService = {
       where: { slug },
       include: {
         organizer: {
-          select: { id: true, name: true, avatarUrl: true },
-        },
-        media: { orderBy: { sortOrder: "asc" } },
-        amenities: {
-          include: {
-            amenity: { select: { id: true, name: true, slug: true, icon: true } },
+          select: {
+            id: true,
+            businessName: true,
+            bio: true,
+            user: { select: { id: true, name: true, avatarUrl: true } },
           },
+        },
+        media: true,
+        amenities: {
+          select: { id: true, name: true, icon: true },
         },
         slotTemplates: {
           where: { isActive: true },
           orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }],
         },
         _count: {
-          select: { members: { where: { status: "ACTIVE" } } },
+          select: { bookings: true },
         },
       },
     });
 
-    if (!court || court.deletedAt) {
+    if (!court) {
       throw new AppError(404, "Court not found");
     }
 
@@ -130,11 +132,12 @@ const CourtService = {
   /**
    * Get courts owned by an organizer.
    */
-  async getOrganizerCourts(organizerId: string, query: QueryParams) {
+  async getOrganizerCourts(userId: string, query: QueryParams) {
+    const organizer = await getOrganizerByUserId(userId);
+
     const qb = new QueryBuilder(query, { defaultSort: "-createdAt" })
       .search(["name", "locationLabel"])
-      .addCondition({ organizerId })
-      .softDelete()
+      .addCondition({ organizerId: organizer.id })
       .sort()
       .paginate();
 
@@ -148,12 +151,9 @@ const CourtService = {
         take,
         include: {
           _count: {
-            select: {
-              bookings: true,
-              members: { where: { status: "ACTIVE" } },
-            },
+            select: { bookings: true },
           },
-          media: { where: { isPrimary: true }, take: 1, select: { secureUrl: true } },
+          media: { where: { isPrimary: true }, take: 1, select: { url: true } },
         },
       }),
       prisma.court.count({ where }),
@@ -167,23 +167,22 @@ const CourtService = {
    */
   async updateCourt(
     courtId: string,
-    organizerId: string,
+    userId: string,
     data: Partial<{
       name: string;
       type: string;
-      surface: string;
       locationLabel: string;
       description: string;
       basePrice: number;
-      currency: string;
-      capacity: number;
-      isIndoor: boolean;
+      latitude: number;
+      longitude: number;
       status: string;
     }>,
   ) {
+    const organizer = await getOrganizerByUserId(userId);
     const court = await prisma.court.findUnique({ where: { id: courtId } });
-    if (!court || court.deletedAt) throw new AppError(404, "Court not found");
-    if (court.organizerId !== organizerId) {
+    if (!court) throw new AppError(404, "Court not found");
+    if (court.organizerId !== organizer.id) {
       throw new AppError(403, "You can only update your own courts");
     }
 
@@ -208,52 +207,58 @@ const CourtService = {
   },
 
   /**
-   * Soft-delete a court.
+   * Soft-delete a court (sets status to HIDDEN).
    */
   async softDeleteCourt(courtId: string, userId: string, userRole: string) {
     const court = await prisma.court.findUnique({ where: { id: courtId } });
-    if (!court || court.deletedAt) throw new AppError(404, "Court not found");
+    if (!court) throw new AppError(404, "Court not found");
 
-    if (userRole !== "ADMIN" && court.organizerId !== userId) {
-      throw new AppError(403, "You can only delete your own courts");
+    if (userRole !== "ADMIN") {
+      const organizer = await getOrganizerByUserId(userId);
+      if (court.organizerId !== organizer.id) {
+        throw new AppError(403, "You can only delete your own courts");
+      }
     }
 
     const deleted = await prisma.court.update({
       where: { id: courtId },
-      data: { deletedAt: new Date(), status: "ARCHIVED" },
+      data: { status: "HIDDEN" },
     });
 
     return deleted;
   },
 
   /**
-   * Get members of a court.
+   * Get members (users who have booked) of a court.
    */
   async getCourtMembers(courtId: string, query: QueryParams) {
     const qb = new QueryBuilder(query)
       .addCondition({ courtId })
-      .filter(["status"])
       .sort()
       .paginate();
 
     const { where, orderBy, skip, take } = qb.build();
 
-    const [members, total] = await prisma.$transaction([
-      prisma.courtMember.findMany({
+    const [bookings, total] = await prisma.$transaction([
+      prisma.booking.findMany({
         where,
         orderBy,
         skip,
         take,
-        include: {
+        select: {
+          id: true,
+          bookingCode: true,
+          bookingDate: true,
+          status: true,
           user: {
             select: { id: true, name: true, email: true, avatarUrl: true },
           },
         },
       }),
-      prisma.courtMember.count({ where }),
+      prisma.booking.count({ where }),
     ]);
 
-    return { members, meta: qb.countMeta(total) };
+    return { members: bookings, meta: qb.countMeta(total) };
   },
 };
 

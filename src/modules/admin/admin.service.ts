@@ -29,12 +29,11 @@ const AdminService = {
           role: true,
           phone: true,
           avatarUrl: true,
-          memberSince: true,
+          isApproved: true,
           createdAt: true,
           _count: {
             select: {
               bookings: true,
-              memberships: { where: { status: "ACTIVE" } },
             },
           },
         },
@@ -49,7 +48,7 @@ const AdminService = {
    * Change a user's role.
    */
   async changeUserRole(userId: string, role: string) {
-    const validRoles = ["USER", "MEMBER", "ORGANIZER", "ADMIN"];
+    const validRoles = ["USER", "ORGANIZER", "ADMIN"];
     if (!validRoles.includes(role)) {
       throw new AppError(400, `Invalid role. Must be one of: ${validRoles.join(", ")}`);
     }
@@ -76,30 +75,28 @@ const AdminService = {
   async getDashboardStats() {
     const [
       totalUsers,
-      totalMembers,
       totalOrganizers,
       totalCourts,
       activeCourts,
       totalBookings,
       pendingBookings,
-      approvedBookings,
+      paidBookings,
       totalAnnouncements,
     ] = await prisma.$transaction([
       prisma.user.count(),
-      prisma.user.count({ where: { role: "MEMBER" } }),
       prisma.user.count({ where: { role: "ORGANIZER" } }),
-      prisma.court.count({ where: { deletedAt: null } }),
-      prisma.court.count({ where: { status: "ACTIVE", deletedAt: null } }),
+      prisma.court.count(),
+      prisma.court.count({ where: { status: "ACTIVE" } }),
       prisma.booking.count(),
       prisma.booking.count({ where: { status: "PENDING" } }),
-      prisma.booking.count({ where: { status: "APPROVED" } }),
+      prisma.booking.count({ where: { status: "PAID" } }),
       prisma.announcement.count({ where: { isPublished: true } }),
     ]);
 
     return {
-      users: { total: totalUsers, members: totalMembers, organizers: totalOrganizers },
+      users: { total: totalUsers, organizers: totalOrganizers },
       courts: { total: totalCourts, active: activeCourts },
-      bookings: { total: totalBookings, pending: pendingBookings, approved: approvedBookings },
+      bookings: { total: totalBookings, pending: pendingBookings, paid: paidBookings },
       announcements: { published: totalAnnouncements },
     };
   },

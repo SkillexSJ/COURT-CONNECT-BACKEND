@@ -8,6 +8,7 @@ model User {
   avatarUrl        String?
   isApproved       Boolean   @default(false) // Admin approval gate for ORGANIZERs
   stripeCustomerId String?   @unique
+  organizerProfile Organizer?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
@@ -17,7 +18,6 @@ model User {
   sessions         Session[]
   
   // Business Relations
-  managedCourts    Court[]   @relation("CourtOrganizer")
   bookings         Booking[] @relation("BookingUser")
 
   @@map("users")

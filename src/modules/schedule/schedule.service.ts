@@ -1,7 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import AppError from "../../helpers/AppError.js";
-import { ACTIVE_BOOKING_STATUSES } from "../../shared/constants.js";
-import type { BookingStatus } from "../../generated/prisma/enums.js";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
 
 const ScheduleService = {
   /**
@@ -9,7 +8,7 @@ const ScheduleService = {
    */
   async createSlotTemplate(
     courtId: string,
-    organizerId: string,
+    userId: string,
     data: {
       dayOfWeek: number;
       startMinute: number;
@@ -17,9 +16,10 @@ const ScheduleService = {
       priceOverride?: number;
     },
   ) {
+    const organizer = await getOrganizerByUserId(userId);
     const court = await prisma.court.findUnique({ where: { id: courtId } });
-    if (!court || court.deletedAt) throw new AppError(404, "Court not found");
-    if (court.organizerId !== organizerId) {
+    if (!court) throw new AppError(404, "Court not found");
+    if (court.organizerId !== organizer.id) {
       throw new AppError(403, "You can only manage schedules for your own courts");
     }
 
@@ -77,7 +77,7 @@ const ScheduleService = {
    */
   async updateSlotTemplate(
     templateId: string,
-    organizerId: string,
+    userId: string,
     data: Partial<{
       startMinute: number;
       endMinute: number;
@@ -85,13 +85,14 @@ const ScheduleService = {
       isActive: boolean;
     }>,
   ) {
+    const organizer = await getOrganizerByUserId(userId);
     const template = await prisma.courtSlotTemplate.findUnique({
       where: { id: templateId },
       include: { court: { select: { organizerId: true } } },
     });
 
     if (!template) throw new AppError(404, "Slot template not found");
-    if (template.court.organizerId !== organizerId) {
+    if (template.court.organizerId !== organizer.id) {
       throw new AppError(403, "You can only manage your own court schedules");
     }
 
@@ -102,20 +103,20 @@ const ScheduleService = {
   },
 
   /**
-   * Delete a slot template.
+   * Delete a slot template (soft-deactivate).
    */
-  async deleteSlotTemplate(templateId: string, organizerId: string) {
+  async deleteSlotTemplate(templateId: string, userId: string) {
+    const organizer = await getOrganizerByUserId(userId);
     const template = await prisma.courtSlotTemplate.findUnique({
       where: { id: templateId },
       include: { court: { select: { organizerId: true } } },
     });
 
     if (!template) throw new AppError(404, "Slot template not found");
-    if (template.court.organizerId !== organizerId) {
+    if (template.court.organizerId !== organizer.id) {
       throw new AppError(403, "You can only manage your own court schedules");
     }
 
-    // Soft-deactivate instead of hard delete (may have existing bookings)
     return prisma.courtSlotTemplate.update({
       where: { id: templateId },
       data: { isActive: false },
@@ -124,13 +125,11 @@ const ScheduleService = {
 
   /**
    * Get available slots for a court on a specific date.
-   * Checks templates for the day-of-week, excludes closures and booked slots.
    */
   async getAvailableSlots(courtId: string, date: string) {
     const targetDate = new Date(date);
     const dayOfWeek = targetDate.getDay(); // 0=Sun..6=Sat
 
-    // Get active templates for this day
     const templates = await prisma.courtSlotTemplate.findMany({
       where: { courtId, dayOfWeek, isActive: true },
       orderBy: { startMinute: "asc" },
@@ -138,31 +137,18 @@ const ScheduleService = {
 
     if (templates.length === 0) return [];
 
-    // Get closures for this date
-    const closures = await prisma.courtClosure.findMany({
-      where: { courtId, closureDate: targetDate },
-    });
-
-    // Get booked slots for this date
+    // Get booked slots for this date (PENDING or PAID)
     const bookedSlots = await prisma.bookingSlot.findMany({
       where: {
         courtId,
         bookingDate: targetDate,
         booking: {
-          status: { in: ACTIVE_BOOKING_STATUSES as unknown as BookingStatus[] },
+          status: { in: ["PENDING", "PAID"] },
         },
       },
     });
 
-    // Filter templates: remove closed and already booked
     const available = templates.filter((t) => {
-      // Check closure overlap
-      const isClosed = closures.some(
-        (c) => c.startMinute < t.endMinute && c.endMinute > t.startMinute,
-      );
-      if (isClosed) return false;
-
-      // Check booking overlap
       const isBooked = bookedSlots.some(
         (b) => b.startMinute < t.endMinute && b.endMinute > t.startMinute,
       );

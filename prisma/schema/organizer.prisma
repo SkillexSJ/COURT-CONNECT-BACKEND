@@ -1,0 +1,24 @@
+model Organizer {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @db.Uuid // 1-to-1 relationship
+  
+  // Business Specific Fields
+  businessName    String
+  bio             String?
+  website         String?
+  phoneNumber     String?  // Business contact
+  address         String?
+  
+  // Verification & Payments (Stripe Connect)
+  isVerified      Boolean  @default(false)
+  stripeAccountId String?  @unique // Used for sending them money (payouts)
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courts          Court[]  // Now courts belong to the Organizer profile
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("organizers")
+}

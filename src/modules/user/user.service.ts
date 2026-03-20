@@ -1,8 +1,9 @@
 import { prisma } from "../../lib/prisma.js";
+import AppError from "../../helpers/AppError.js";
 
 const UserService = {
   /**
-   * Get user profile with memberships.
+   * Get user profile with booking history.
    */
   async getProfile(userId: string) {
     const user = await prisma.user.findUnique({
@@ -15,23 +16,16 @@ const UserService = {
         role: true,
         phone: true,
         avatarUrl: true,
-        memberSince: true,
+        isApproved: true,
         createdAt: true,
-        memberships: {
-          where: { status: "ACTIVE" },
-          select: {
-            id: true,
-            joinedAt: true,
-            court: {
-              select: { id: true, name: true, slug: true, type: true },
-            },
-          },
+        _count: {
+          select: { bookings: true },
         },
       },
     });
 
     if (!user) {
-      throw new (await import("../../helpers/AppError.js")).default(404, "User not found");
+      throw new AppError(404, "User not found");
     }
 
     return user;
@@ -42,7 +36,7 @@ const UserService = {
    */
   async updateProfile(
     userId: string,
-    data: { name?: string; phone?: string; avatarUrl?: string; avatarPublicId?: string },
+    data: { name?: string; phone?: string; avatarUrl?: string },
   ) {
     const user = await prisma.user.update({
       where: { id: userId },
@@ -54,7 +48,6 @@ const UserService = {
         role: true,
         phone: true,
         avatarUrl: true,
-        memberSince: true,
         updatedAt: true,
       },
     });
