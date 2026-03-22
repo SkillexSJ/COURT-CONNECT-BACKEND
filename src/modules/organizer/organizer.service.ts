@@ -21,25 +21,34 @@ const OrganizerService = {
       throw new AppError(409, "You already have an organizer profile");
     }
 
-    // Check the user exists and has ORGANIZER role
+    // Check the user exists and can become organizer
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new AppError(404, "User not found");
-    if (user.role !== "ORGANIZER" && user.role !== "ADMIN") {
+    if (!["USER", "ORGANIZER", "ADMIN"].includes(user.role as string)) {
       throw new AppError(
         403,
-        "Only users with ORGANIZER role can create an organizer profile",
+        "Only users with USER, ORGANIZER, or ADMIN role can create an organizer profile",
       );
     }
 
-    return prisma.organizer.create({
-      data: {
-        userId,
-        businessName: data.businessName,
-        bio: data.bio ?? null,
-        website: data.website ?? null,
-        phoneNumber: data.phoneNumber ?? null,
-        address: data.address ?? null,
-      },
+    return prisma.$transaction(async (tx) => {
+      if (user.role === "USER") {
+        await tx.user.update({
+          where: { id: userId },
+          data: { role: "ORGANIZER" as any },
+        });
+      }
+
+      return tx.organizer.create({
+        data: {
+          userId,
+          businessName: data.businessName,
+          bio: data.bio ?? null,
+          website: data.website ?? null,
+          phoneNumber: data.phoneNumber ?? null,
+          address: data.address ?? null,
+        },
+      });
     });
   },
 

@@ -35,12 +35,16 @@ export interface QueryParams {
 }
 
 export interface PaginationMeta {
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  // Legacy aliases kept for compatibility with older frontend consumers.
   page: number;
   limit: number;
   total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
 }
 
 interface BuildResult<TWhere, TSelect, TOrderBy> {
@@ -327,12 +331,16 @@ export class QueryBuilder<
   countMeta(total: number): PaginationMeta {
     const totalPages = Math.ceil(total / this.takeValue);
     return {
+      totalItems: total,
+      totalPages,
+      currentPage: this.pageValue,
+      itemsPerPage: this.takeValue,
+      hasNextPage: this.pageValue < totalPages,
+      hasPrevPage: this.pageValue > 1,
+      // Legacy aliases
       page: this.pageValue,
       limit: this.takeValue,
       total,
-      totalPages,
-      hasNextPage: this.pageValue < totalPages,
-      hasPrevPage: this.pageValue > 1,
     };
   }
 

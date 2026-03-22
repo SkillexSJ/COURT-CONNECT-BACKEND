@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "CourtStatus" ADD VALUE 'PENDING_APPROVAL';
+
+-- AlterTable
+ALTER TABLE "courts" ALTER COLUMN "status" SET DEFAULT 'PENDING_APPROVAL';

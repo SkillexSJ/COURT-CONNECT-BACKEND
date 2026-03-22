@@ -8,7 +8,8 @@
     "dev": "npx tsx watch src/server.ts",
     "build": "tsup src/server.ts src/app.ts --format esm --clean && copyfiles -u 1 src/static/**/* dist",
     "start": "node dist/server.js",
-    "seed:admin": "npx tsx  src/scripts/seedAdmin.ts",
+    "seed": "npx tsx src/scripts/seed.ts",
+    "seed:admin": "npm run seed",
     "postinstall": "prisma generate"
   },
   "keywords": [],

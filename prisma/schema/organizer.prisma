@@ -1,6 +1,6 @@
 model Organizer {
   id              String   @id @default(uuid()) @db.Uuid
-  userId          String   @unique @db.Uuid // 1-to-1 relationship
+  userId          String   @unique // 1-to-1 relationship
   
   // Business Specific Fields
   businessName    String

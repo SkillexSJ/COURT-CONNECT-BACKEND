@@ -1,22 +1,27 @@
 import { prisma } from "../../lib/prisma.js";
 import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
 import AppError from "../../helpers/AppError.js";
-import { slugify } from "../../shared/constants.js";
+import { COURT_STATUS, slugify } from "../../shared/constants.js";
 import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
+import cloudinary from "../../config/cloudinary.js";
 
 const CourtService = {
   /**
    * Create a new court (Organizer).
    */
-  async createCourt(userId: string, data: {
-    name: string;
-    type: string;
-    locationLabel: string;
-    description?: string;
-    basePrice: number;
-    latitude?: number;
-    longitude?: number;
-  }) {
+  async createCourt(
+    userId: string,
+    data: {
+      name: string;
+      type: string;
+      locationLabel: string;
+      description?: string;
+      basePrice: number;
+      latitude?: number;
+      longitude?: number;
+      amenityIds?: string[];
+    },
+  ) {
     const organizer = await getOrganizerByUserId(userId);
 
     const baseSlug = slugify(data.name);
@@ -25,6 +30,20 @@ const CourtService = {
     while (await prisma.court.findUnique({ where: { slug } })) {
       slug = `${baseSlug}-${counter}`;
       counter++;
+    }
+
+    let amenityConnections: { id: string }[] | undefined;
+    if (data.amenityIds && data.amenityIds.length > 0) {
+      const foundAmenities = await prisma.amenity.findMany({
+        where: { id: { in: data.amenityIds } },
+        select: { id: true },
+      });
+
+      if (foundAmenities.length !== data.amenityIds.length) {
+        throw new AppError(400, "One or more selected amenities are invalid");
+      }
+
+      amenityConnections = foundAmenities.map((item) => ({ id: item.id }));
     }
 
     const court = await prisma.court.create({
@@ -38,6 +57,10 @@ const CourtService = {
         basePrice: data.basePrice,
         latitude: data.latitude ?? null,
         longitude: data.longitude ?? null,
+        status: COURT_STATUS.PENDING_APPROVAL as any,
+        ...(amenityConnections
+          ? { amenities: { connect: amenityConnections } }
+          : {}),
       },
     });
 
@@ -45,14 +68,139 @@ const CourtService = {
   },
 
   /**
+   * Upload court media (primary + gallery) and persist Cloudinary metadata.
+   */
+  async uploadCourtMedia(
+    courtId: string,
+    userId: string,
+    userRole: string,
+    files: Express.Multer.File[],
+    primaryIndex?: number,
+  ) {
+    if (!files || files.length === 0) {
+      throw new AppError(400, "At least one image is required");
+    }
+
+    const court = await prisma.court.findUnique({ where: { id: courtId } });
+    if (!court) throw new AppError(404, "Court not found");
+
+    if (userRole !== "ADMIN") {
+      const organizer = await getOrganizerByUserId(userId);
+      if (court.organizerId !== organizer.id) {
+        throw new AppError(403, "You can only upload media to your own courts");
+      }
+    }
+
+    const uploadedPublicIds = files
+      .map((file) => (file as any).filename as string | undefined)
+      .filter((id): id is string => Boolean(id));
+
+    try {
+      const existingPrimary = await prisma.courtMedia.findFirst({
+        where: { courtId, isPrimary: true },
+        select: { id: true },
+      });
+
+      const validPrimaryIndex =
+        primaryIndex !== undefined &&
+        Number.isInteger(primaryIndex) &&
+        primaryIndex >= 0 &&
+        primaryIndex < files.length
+          ? primaryIndex
+          : undefined;
+
+      const mediaRows = files.map((file, index) => {
+        const cloudinaryPath = (file as any).path as string | undefined;
+        const cloudinaryPublicId = (file as any).filename as string | undefined;
+
+        if (!cloudinaryPath || !cloudinaryPublicId) {
+          throw new AppError(500, "Cloudinary upload metadata is missing");
+        }
+
+        const isPrimary =
+          validPrimaryIndex !== undefined
+            ? index === validPrimaryIndex
+            : !existingPrimary && index === 0;
+
+        return {
+          courtId,
+          url: cloudinaryPath,
+          publicId: cloudinaryPublicId,
+          isPrimary,
+        };
+      });
+
+      return prisma.$transaction(async (tx) => {
+        if (validPrimaryIndex !== undefined) {
+          await tx.courtMedia.updateMany({
+            where: { courtId, isPrimary: true },
+            data: { isPrimary: false },
+          });
+        }
+
+        await tx.courtMedia.createMany({ data: mediaRows });
+
+        return tx.courtMedia.findMany({
+          where: { courtId },
+          orderBy: [{ isPrimary: "desc" }, { id: "desc" }],
+        });
+      });
+    } catch (error) {
+      if (uploadedPublicIds.length > 0) {
+        await Promise.allSettled(
+          uploadedPublicIds.map((publicId) =>
+            cloudinary.uploader.destroy(publicId, {
+              resource_type: "image",
+              invalidate: true,
+            }),
+          ),
+        );
+      }
+
+      throw error;
+    }
+  },
+
+  /**
    * Get all courts (public, paginated, filterable).
    */
   async getAllCourts(query: QueryParams) {
-    const qb = new QueryBuilder(query, { defaultSort: "-createdAt", maxLimit: 50 })
+    const qb = new QueryBuilder(query, {
+      defaultSort: "-createdAt",
+      maxLimit: 50,
+    })
       .search(["name", "locationLabel", "type"])
       .filter(["status", "type", "basePrice"])
       .sort()
       .paginate();
+
+    // Public listing should only show approved/active courts unless status is explicitly requested.
+    if (!query.status) {
+      qb.addCondition({ status: COURT_STATUS.ACTIVE });
+    }
+
+    // Filter by amenities: ?amenityIds=id1,id2,id3
+    const rawAmenityIds = query.amenityIds;
+    const amenityIds = (
+      Array.isArray(rawAmenityIds)
+        ? rawAmenityIds.join(",")
+        : typeof rawAmenityIds === "string"
+          ? rawAmenityIds
+          : ""
+    )
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (amenityIds.length > 0) {
+      qb.addCondition({
+        amenities: {
+          some: {
+            id: { in: amenityIds },
+          },
+        },
+      });
+    }
 
     const { where, orderBy, skip, take } = qb.build();
 
@@ -177,6 +325,7 @@ const CourtService = {
       latitude: number;
       longitude: number;
       status: string;
+      amenityIds: string[];
     }>,
   ) {
     const organizer = await getOrganizerByUserId(userId);
@@ -192,15 +341,48 @@ const CourtService = {
       const baseSlug = slugify(data.name);
       slug = baseSlug;
       let counter = 1;
-      while (await prisma.court.findFirst({ where: { slug, id: { not: courtId } } })) {
+      while (
+        await prisma.court.findFirst({ where: { slug, id: { not: courtId } } })
+      ) {
         slug = `${baseSlug}-${counter}`;
         counter++;
       }
     }
 
+    const { amenityIds, ...restData } = data;
+
+    let amenitySetPayload:
+      | {
+          set: { id: string }[];
+        }
+      | undefined;
+
+    if (amenityIds !== undefined) {
+      if (amenityIds.length > 0) {
+        const foundAmenities = await prisma.amenity.findMany({
+          where: { id: { in: amenityIds } },
+          select: { id: true },
+        });
+
+        if (foundAmenities.length !== amenityIds.length) {
+          throw new AppError(400, "One or more selected amenities are invalid");
+        }
+
+        amenitySetPayload = {
+          set: foundAmenities.map((item) => ({ id: item.id })),
+        };
+      } else {
+        amenitySetPayload = { set: [] };
+      }
+    }
+
     const updated = await prisma.court.update({
       where: { id: courtId },
-      data: { ...data, ...(slug ? { slug } : {}) } as any,
+      data: {
+        ...restData,
+        ...(slug ? { slug } : {}),
+        ...(amenitySetPayload ? { amenities: amenitySetPayload } : {}),
+      } as any,
     });
 
     return updated;
@@ -226,6 +408,20 @@ const CourtService = {
     });
 
     return deleted;
+  },
+
+  /**
+   * Get amenities list for organizer court creation/editing.
+   */
+  async getAmenities() {
+    return prisma.amenity.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+      },
+    });
   },
 
   /**

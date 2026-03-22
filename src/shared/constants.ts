@@ -9,6 +9,7 @@ export const USER_ROLE = {
 } as const;
 
 export const COURT_STATUS = {
+  PENDING_APPROVAL: "PENDING_APPROVAL",
   ACTIVE: "ACTIVE",
   MAINTENANCE: "MAINTENANCE",
   HIDDEN: "HIDDEN",

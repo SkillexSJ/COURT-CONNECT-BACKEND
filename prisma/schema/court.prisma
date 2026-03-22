@@ -9,7 +9,7 @@ model Court {
   basePrice     Decimal            @db.Decimal(12, 2)
   latitude      Float?             // For "Courts Near Me" geo-search
   longitude     Float?             // For "Courts Near Me" geo-search
-  status        CourtStatus        @default(ACTIVE)
+  status        CourtStatus        @default(PENDING_APPROVAL)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   

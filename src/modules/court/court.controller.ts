@@ -5,7 +5,9 @@ import CourtService from "./court.service.js";
 
 const CourtController: Record<
   | "createCourt"
+  | "uploadCourtMedia"
   | "getAllCourts"
+  | "getAmenities"
   | "getCourtBySlug"
   | "getOrganizerCourts"
   | "getCourtMembers"
@@ -18,9 +20,32 @@ const CourtController: Record<
     sendCreated(res, result, "Court created successfully");
   }),
 
+  uploadCourtMedia: catchAsync(async (req: Request, res: Response) => {
+    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+    const primaryIndex =
+      req.body?.primaryIndex !== undefined
+        ? Number(req.body.primaryIndex)
+        : undefined;
+
+    const result = await CourtService.uploadCourtMedia(
+      req.params.courtId as string,
+      req.user!.id,
+      req.user!.role,
+      files,
+      Number.isFinite(primaryIndex) ? primaryIndex : undefined,
+    );
+
+    sendCreated(res, result, "Court media uploaded successfully");
+  }),
+
   getAllCourts: catchAsync(async (req: Request, res: Response) => {
     const { courts, meta } = await CourtService.getAllCourts(req.query as any);
     sendSuccess(res, { data: courts, meta }, "Courts retrieved successfully");
+  }),
+
+  getAmenities: catchAsync(async (_req: Request, res: Response) => {
+    const result = await CourtService.getAmenities();
+    sendSuccess(res, { data: result }, "Amenities retrieved successfully");
   }),
 
   getCourtBySlug: catchAsync(async (req: Request, res: Response) => {
@@ -33,7 +58,11 @@ const CourtController: Record<
       req.user!.id,
       req.query as any,
     );
-    sendSuccess(res, { data: courts, meta }, "Organizer courts retrieved successfully");
+    sendSuccess(
+      res,
+      { data: courts, meta },
+      "Organizer courts retrieved successfully",
+    );
   }),
 
   getCourtMembers: catchAsync(async (req: Request, res: Response) => {
@@ -41,7 +70,11 @@ const CourtController: Record<
       req.params.courtId as string,
       req.query as any,
     );
-    sendSuccess(res, { data: members, meta }, "Court members retrieved successfully");
+    sendSuccess(
+      res,
+      { data: members, meta },
+      "Court members retrieved successfully",
+    );
   }),
 
   updateCourt: catchAsync(async (req: Request, res: Response) => {

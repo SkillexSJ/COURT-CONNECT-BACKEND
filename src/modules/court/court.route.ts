@@ -2,6 +2,7 @@ import { Router } from "express";
 import authMiddleware, { optionalAuth } from "../../middlewares/auth.js";
 import authorize from "../../middlewares/authorize.js";
 import { validateRequest } from "../../middlewares/validateRequest.js";
+import { multipleImageUpload } from "../../config/cloudinary.js";
 import { createCourtSchema, updateCourtSchema } from "./court.validation.js";
 import CourtController from "./court.controller.js";
 
@@ -9,6 +10,7 @@ const router: Router = Router();
 
 // Public
 router.get("/", optionalAuth, CourtController.getAllCourts);
+router.get("/amenities", optionalAuth, CourtController.getAmenities);
 router.get("/:slug", optionalAuth, CourtController.getCourtBySlug);
 
 // Organizer
@@ -31,6 +33,13 @@ router.patch(
   authorize("ORGANIZER", "ADMIN"),
   validateRequest(updateCourtSchema),
   CourtController.updateCourt,
+);
+router.post(
+  "/:courtId/media",
+  authMiddleware(),
+  authorize("ORGANIZER", "ADMIN"),
+  multipleImageUpload("images", 7, "court-connect/courts"),
+  CourtController.uploadCourtMedia,
 );
 router.delete(
   "/:courtId",

@@ -19,7 +19,12 @@ export const createCourtSchema = z.object({
     .number("Base price must be a number")
     .positive("Price must be a positive number"),
   latitude: z.number("Latitude must be a number").min(-90).max(90).optional(),
-  longitude: z.number("Longitude must be a number").min(-180).max(180).optional(),
+  longitude: z
+    .number("Longitude must be a number")
+    .min(-180)
+    .max(180)
+    .optional(),
+  amenityIds: z.array(z.uuid()).optional(),
 });
 
 export const updateCourtSchema = z.object({
@@ -31,10 +36,20 @@ export const updateCourtSchema = z.object({
   type: z.string("Type must be a string").min(2).optional(),
   locationLabel: z.string("Location must be a string").min(3).optional(),
   description: z.string("Description must be a string").max(1000).optional(),
-  basePrice: z.number("Price must be a number").positive("Price must be positive").optional(),
+  basePrice: z
+    .number("Price must be a number")
+    .positive("Price must be positive")
+    .optional(),
   latitude: z.number("Latitude must be a number").min(-90).max(90).optional(),
-  longitude: z.number("Longitude must be a number").min(-180).max(180).optional(),
-  status: z.enum(["ACTIVE", "MAINTENANCE", "HIDDEN"]).optional(),
+  longitude: z
+    .number("Longitude must be a number")
+    .min(-180)
+    .max(180)
+    .optional(),
+  amenityIds: z.array(z.uuid()).optional(),
+  status: z
+    .enum(["PENDING_APPROVAL", "ACTIVE", "MAINTENANCE", "HIDDEN"])
+    .optional(),
 });
 
 export const CourtValidation = {

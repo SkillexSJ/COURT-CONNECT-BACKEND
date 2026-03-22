@@ -40,9 +40,9 @@ const authMiddleware = (...roles: UserRole[]) => {
       if (!session || !session.user) {
         return sendUnauthorized(res, "Unauthorized");
       }
-      if (!session.user.emailVerified) {
-        return sendUnauthorized(res, "Email not verified");
-      }
+      // if (!session.user.emailVerified) {
+      //   return sendUnauthorized(res, "Email not verified");
+      // }
 
       const user = session.user as any;
 

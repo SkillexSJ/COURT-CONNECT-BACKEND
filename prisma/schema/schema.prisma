@@ -16,6 +16,7 @@ enum UserRole {
 }
 
 enum CourtStatus {
+  PENDING_APPROVAL
   ACTIVE
   MAINTENANCE
   HIDDEN

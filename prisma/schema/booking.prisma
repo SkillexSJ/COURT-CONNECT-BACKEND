@@ -1,7 +1,7 @@
 model Booking {
   id             String        @id @default(uuid()) @db.Uuid
   bookingCode    String        @unique
-  userId         String        @db.Uuid
+  userId         String
   courtId        String        @db.Uuid
   couponId       String?       @db.Uuid
   bookingDate    DateTime      @db.Date

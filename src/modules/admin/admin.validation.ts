@@ -23,8 +23,35 @@ export const updateUserProfileSchema = z.object({
     .optional(),
 });
 
+export const createAmenitySchema = z.object({
+  name: z
+    .string("Amenity name must be a string")
+    .min(2, "Amenity name must be at least 2 characters")
+    .max(80, "Amenity name must not exceed 80 characters"),
+  icon: z
+    .string("Icon must be a string")
+    .max(120, "Icon must not exceed 120 characters")
+    .nullable()
+    .optional(),
+});
+
+export const updateAmenitySchema = z.object({
+  name: z
+    .string("Amenity name must be a string")
+    .min(2, "Amenity name must be at least 2 characters")
+    .max(80, "Amenity name must not exceed 80 characters")
+    .optional(),
+  icon: z
+    .string("Icon must be a string")
+    .max(120, "Icon must not exceed 120 characters")
+    .nullable()
+    .optional(),
+});
+
 export const AdminValidation = {
   changeUserRoleSchema,
+  createAmenitySchema,
+  updateAmenitySchema,
 };
 
 export const UserValidation = {
