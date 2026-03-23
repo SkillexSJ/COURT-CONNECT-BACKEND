@@ -10,6 +10,7 @@ model Booking {
   
   paymentId      String?       // Reference to Stripe/PayPal transaction
   paidAt         DateTime?
+  expiresAt      DateTime?     // 24-hour hold expiry for PENDING bookings
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 

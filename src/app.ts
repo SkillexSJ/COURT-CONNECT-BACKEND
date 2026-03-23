@@ -17,6 +17,7 @@ import { UserRoutes } from "./modules/user/user.route.js";
 import { CourtRoutes } from "./modules/court/court.route.js";
 import { ScheduleRoutes } from "./modules/schedule/schedule.route.js";
 import { BookingRoutes } from "./modules/booking/booking.route.js";
+
 import { AnnouncementRoutes } from "./modules/announcement/announcement.route.js";
 import { AdminRoutes } from "./modules/admin/admin.route.js";
 import { OrganizerRoutes } from "./modules/organizer/organizer.route.js";
@@ -26,6 +27,7 @@ import { OrganizerRoutes } from "./modules/organizer/organizer.route.js";
  */
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { envVars } from "./config/env.js";
+import { PaymentRoutes } from "./modules/payment/payment.route.js";
 
 /**
  * CONFIG
@@ -43,6 +45,9 @@ app.use(
   }),
 );
 
+// Stripe webhook must receive raw request body for signature verification
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 
 // BetterAuth handler
@@ -53,6 +58,7 @@ app.use("/api/users", UserRoutes);
 app.use("/api/courts", CourtRoutes);
 app.use("/api", ScheduleRoutes);
 app.use("/api/bookings", BookingRoutes);
+app.use("/api/payments", PaymentRoutes);
 app.use("/api/announcements", AnnouncementRoutes);
 app.use("/api/admin", AdminRoutes);
 app.use("/api/organizer", OrganizerRoutes);

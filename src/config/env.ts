@@ -23,6 +23,10 @@ interface EnvConfig {
   GOOGLE_CLIENT_ID?: string | undefined;
   GOOGLE_CLIENT_SECRET?: string | undefined;
   DATABASE_URL: string;
+  STRIPE_SECRET_KEY: string;
+  STRIPE_PUBLISHABLE_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+  STRIPE_CURRENCY: string;
 }
 
 const loadEnvVariables = (): EnvConfig => {
@@ -40,14 +44,17 @@ const loadEnvVariables = (): EnvConfig => {
     "CLOUDINARY_API_SECRET",
     "ADMIN_EMAIL",
     "ADMIN_PASSWORD",
-    "DATABASE_URL"
+    "DATABASE_URL",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_PUBLISHABLE_KEY",
+    "STRIPE_WEBHOOK_SECRET",
   ];
 
   requireEnvVariable.forEach((variable) => {
     if (!process.env[variable]) {
       throw new AppError(
         500,
-        `Environment variable ${variable} is required but not set in .env file.`
+        `Environment variable ${variable} is required but not set in .env file.`,
       );
     }
   });
@@ -72,6 +79,10 @@ const loadEnvVariables = (): EnvConfig => {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     DATABASE_URL: process.env.DATABASE_URL as string,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY as string,
+    STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY as string,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET as string,
+    STRIPE_CURRENCY: process.env.STRIPE_CURRENCY || "usd",
   };
 };
 

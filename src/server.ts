@@ -9,6 +9,7 @@ import { Server } from "http";
 import app from "./app.js";
 import { prisma } from "./lib/prisma.js";
 import { envVars } from "./config/env.js";
+import { startBookingExpiryJob } from "./scripts/booking-expiry-job.js";
 
 /**
  * CONFIG
@@ -22,6 +23,9 @@ async function main() {
     await prisma.$connect();
 
     console.log("Connected to the database successfully.");
+
+    // Start background jobs
+    startBookingExpiryJob();
 
     server = app.listen(PORT, () => {
       console.log(`CourtConnect Server is running on http://localhost:${PORT}`);
