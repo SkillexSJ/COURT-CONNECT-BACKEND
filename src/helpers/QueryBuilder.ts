@@ -55,7 +55,7 @@ interface BuildResult<TWhere, TSelect, TOrderBy> {
   select: TSelect | undefined;
 }
 
-/* ---------- Reserved keys (not treated as filters) ---------- */
+//Reserved keys (not treated as filters)
 const RESERVED_KEYS = new Set([
   "searchTerm",
   "page",
@@ -65,7 +65,7 @@ const RESERVED_KEYS = new Set([
   "includeDeleted",
 ]);
 
-/* ---------- Operator suffixes ---------- */
+//Operator suffixes
 const OPERATOR_MAP: Record<string, string> = {
   _gte: "gte",
   _gt: "gt",
@@ -79,7 +79,7 @@ const OPERATOR_MAP: Record<string, string> = {
   _notIn: "notIn",
 };
 
-/* ---------- Builder ---------- */
+//Builder
 
 export class QueryBuilder<
   TWhere = Record<string, unknown>,
@@ -133,7 +133,9 @@ export class QueryBuilder<
           mode: "insensitive",
         };
         for (let i = parts.length - 1; i >= 0; i--) {
-          condition = { [parts[i]!]: i === parts.length - 1 ? condition : condition };
+          condition = {
+            [parts[i]!]: i === parts.length - 1 ? condition : condition,
+          };
         }
         return condition;
       }
@@ -169,7 +171,11 @@ export class QueryBuilder<
     const entries = Object.entries(this.params);
 
     for (const [rawKey, rawValue] of entries) {
-      if (RESERVED_KEYS.has(rawKey) || rawValue === undefined || rawValue === "")
+      if (
+        RESERVED_KEYS.has(rawKey) ||
+        rawValue === undefined ||
+        rawValue === ""
+      )
         continue;
 
       // Check for operator suffix
@@ -185,7 +191,11 @@ export class QueryBuilder<
       }
 
       // Whitelist check
-      if (allowedFields && allowedFields.length > 0 && !allowedFields.includes(fieldName)) {
+      if (
+        allowedFields &&
+        allowedFields.length > 0 &&
+        !allowedFields.includes(fieldName)
+      ) {
         continue;
       }
 
@@ -238,8 +248,12 @@ export class QueryBuilder<
    * Falls back to `defaults.defaultSort` or `-createdAt`.
    */
   sort(): this {
-    const raw = this.params.sortBy || this.defaults?.defaultSort || "-createdAt";
-    const fields = raw.split(",").map((f) => f.trim()).filter(Boolean);
+    const raw =
+      this.params.sortBy || this.defaults?.defaultSort || "-createdAt";
+    const fields = raw
+      .split(",")
+      .map((f) => f.trim())
+      .filter(Boolean);
 
     this.orderByClause = fields.map((field) => {
       if (field.startsWith("-")) {
@@ -337,7 +351,7 @@ export class QueryBuilder<
       itemsPerPage: this.takeValue,
       hasNextPage: this.pageValue < totalPages,
       hasPrevPage: this.pageValue > 1,
-      // Legacy aliases
+      // aliases
       page: this.pageValue,
       limit: this.takeValue,
       total,
