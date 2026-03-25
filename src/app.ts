@@ -17,6 +17,7 @@ import { UserRoutes } from "./modules/user/user.route.js";
 import { CourtRoutes } from "./modules/court/court.route.js";
 import { ScheduleRoutes } from "./modules/schedule/schedule.route.js";
 import { BookingRoutes } from "./modules/booking/booking.route.js";
+import { CouponRoutes } from "./modules/coupon/coupon.route.js";
 
 import { AnnouncementRoutes } from "./modules/announcement/announcement.route.js";
 import { AdminRoutes } from "./modules/admin/admin.route.js";
@@ -58,6 +59,7 @@ app.use("/api/users", UserRoutes);
 app.use("/api/courts", CourtRoutes);
 app.use("/api", ScheduleRoutes);
 app.use("/api/bookings", BookingRoutes);
+app.use("/api/coupons", CouponRoutes);
 app.use("/api/payments", PaymentRoutes);
 app.use("/api/announcements", AnnouncementRoutes);
 app.use("/api/admin", AdminRoutes);

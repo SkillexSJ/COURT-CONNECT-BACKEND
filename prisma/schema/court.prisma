@@ -18,6 +18,7 @@ model Court {
   amenities     Amenity[]          
   slotTemplates CourtSlotTemplate[]
   bookings      Booking[]
+  announcements Announcement[]
 
   @@map("courts")
 }
