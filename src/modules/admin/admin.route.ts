@@ -1,13 +1,13 @@
 import { Router } from "express";
-import authMiddleware from "../../middlewares/auth.js";
-import authorize from "../../middlewares/authorize.js";
-import { validateRequest } from "../../middlewares/validateRequest.js";
 import {
   changeUserRoleSchema,
   createAmenitySchema,
   updateAmenitySchema,
-} from "./admin.validation.js";
-import AdminController from "./admin.controller.js";
+} from "./admin.validation";
+import authorize from "../../middlewares/authorize";
+import authMiddleware from "../../middlewares/auth";
+import AdminController from "./admin.controller";
+import { validateRequest } from "../../middlewares/validateRequest";
 
 const router: Router = Router();
 
@@ -21,6 +21,7 @@ router.patch(
   AdminController.changeUserRole,
 );
 router.get("/dashboard", AdminController.getDashboardStats);
+router.get("/reports", AdminController.getReports);
 router.get("/courts/pending", AdminController.getPendingCourts);
 router.patch("/courts/:courtId/approve", AdminController.approveCourt);
 router.get("/amenities", AdminController.getAmenities);

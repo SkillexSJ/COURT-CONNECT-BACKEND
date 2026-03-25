@@ -1,5 +1,5 @@
-import { prisma } from "../../lib/prisma.js";
-import AppError from "../../helpers/AppError.js";
+import { prisma } from "../../lib/prisma";
+import AppError from "../../helpers/AppError";
 
 const UserService = {
   /**
@@ -32,7 +32,7 @@ const UserService = {
   },
 
   /**
-   * Update user profile (name, phone, avatarUrl).
+   * Update user profile
    */
   async updateProfile(
     userId: string,
@@ -53,6 +53,34 @@ const UserService = {
     });
 
     return user;
+  },
+
+  async uploadAvatar(userId: string, file?: Express.Multer.File) {
+    if (!file) {
+      throw new AppError(400, "Profile image file is required");
+    }
+
+    const uploadedUrl =
+      (file as Express.Multer.File & { path?: string; secure_url?: string })
+        .path ??
+      (file as Express.Multer.File & { secure_url?: string }).secure_url;
+
+    if (!uploadedUrl) {
+      throw new AppError(500, "Failed to upload profile image");
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: uploadedUrl },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        avatarUrl: true,
+        updatedAt: true,
+      },
+    });
   },
 };
 

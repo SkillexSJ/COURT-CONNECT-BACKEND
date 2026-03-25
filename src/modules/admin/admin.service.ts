@@ -1,7 +1,14 @@
-import { prisma } from "../../lib/prisma.js";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
-import AppError from "../../helpers/AppError.js";
-import { COURT_STATUS } from "../../shared/constants.js";
+import { prisma } from "../../lib/prisma";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
+import AppError from "../../helpers/AppError";
+import { COURT_STATUS } from "../../shared/constants";
+import {
+  DAY_IN_MS,
+  asAmount,
+  formatMonthKey,
+  formatMonthLabel,
+  parseDays,
+} from "./admin.helpers";
 
 const AdminService = {
   /**
@@ -32,9 +39,29 @@ const AdminService = {
           avatarUrl: true,
           isApproved: true,
           createdAt: true,
+          organizerProfile: {
+            select: {
+              isVerified: true,
+            },
+          },
           _count: {
             select: {
               bookings: true,
+            },
+          },
+          bookings: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              id: true,
+              bookingDate: true,
+              status: true,
+              court: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -60,16 +87,37 @@ const AdminService = {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new AppError(404, "User not found");
 
-    return prisma.user.update({
-      where: { id: userId },
-      data: { role: role as any },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        updatedAt: true,
-      },
+    return prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          role: role as any,
+          isApproved: role === "ORGANIZER" ? true : user.isApproved,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          updatedAt: true,
+        },
+      });
+
+      if (role === "ORGANIZER") {
+        await tx.organizer.updateMany({
+          where: { userId },
+          data: { isVerified: true },
+        });
+      }
+
+      if (role === "USER") {
+        await tx.organizer.updateMany({
+          where: { userId },
+          data: { isVerified: false },
+        });
+      }
+
+      return updatedUser;
     });
   },
 
@@ -107,6 +155,238 @@ const AdminService = {
       },
       announcements: { published: totalAnnouncements },
     };
+  },
+
+  /**
+   * Get advanced reports for admin analytics page.
+   */
+  async getReports(query: QueryParams) {
+    const rangeDays = parseDays(query.days);
+    const now = new Date();
+    const rangeStart = new Date(now.getTime() - (rangeDays - 1) * DAY_IN_MS);
+
+    const [rawStats, recentRevenueBookings] = await prisma.$transaction(
+      async (tx) => {
+        const rawStats = await this._getRawReportStats(now, rangeStart);
+        const recentRevenueBookings = await tx.booking.findMany({
+          where: {
+            status: { in: ["PAID", "COMPLETED"] },
+            bookingDate: { gte: rangeStart },
+          },
+          select: {
+            id: true,
+            bookingDate: true,
+            totalAmount: true,
+            court: {
+              select: {
+                type: true,
+                organizer: {
+                  select: {
+                    id: true,
+                    businessName: true,
+                    user: { select: { name: true } },
+                    courts: { select: { id: true } },
+                  },
+                },
+              },
+            },
+          },
+        });
+        return [rawStats, recentRevenueBookings];
+      },
+    );
+
+    // Process maps
+    const {
+      monthlyRevenue,
+      topOrganizers,
+      courtTypePerformance,
+      organizerCount,
+    } = this._processRevenueData(recentRevenueBookings);
+
+    return {
+      rangeDays,
+      generatedAt: now.toISOString(),
+      summary: {
+        lifetimeRevenue: Number(
+          asAmount(rawStats.lifetimeRevenue._sum.totalAmount).toFixed(2),
+        ),
+        totalBookings: rawStats.totalBookings,
+        completedTransactions:
+          rawStats.paidBookings + rawStats.completedBookings,
+        activeOrganizersInRange: organizerCount,
+        totalOrganizers: rawStats.totalOrganizers,
+        activeCoupons: rawStats.activeCoupons,
+        expiringCouponsSoon: rawStats.expiringCouponsSoon,
+      },
+      statusBreakdown: [
+        { status: "PENDING", count: rawStats.pendingBookings },
+        { status: "PAID", count: rawStats.paidBookings },
+        { status: "COMPLETED", count: rawStats.completedBookings },
+        { status: "CANCELLED", count: rawStats.cancelledBookings },
+      ],
+      monthlyRevenue,
+      topOrganizers,
+      courtTypePerformance,
+      alerts: this._generateAlerts(rawStats),
+    };
+  },
+
+  /* ---- Internal Report Helpers ---- */
+
+  async _getRawReportStats(now: Date, rangeStart: Date) {
+    const [
+      lifetimeRevenue,
+      totalBookings,
+      pendingBookings,
+      paidBookings,
+      completedBookings,
+      cancelledBookings,
+      pendingCourts,
+      activeCoupons,
+      expiringCouponsSoon,
+      totalOrganizers,
+    ] = await prisma.$transaction([
+      prisma.booking.aggregate({
+        where: { status: { in: ["PAID", "COMPLETED"] } },
+        _sum: { totalAmount: true },
+      }),
+      prisma.booking.count(),
+      prisma.booking.count({ where: { status: "PENDING" } }),
+      prisma.booking.count({ where: { status: "PAID" } }),
+      prisma.booking.count({ where: { status: "COMPLETED" } }),
+      prisma.booking.count({ where: { status: "CANCELLED" } }),
+      prisma.court.count({ where: { status: COURT_STATUS.PENDING_APPROVAL } }),
+      prisma.coupon.count({ where: { isActive: true } }),
+      prisma.coupon.count({
+        where: {
+          isActive: true,
+          expiresAt: {
+            gte: now,
+            lte: new Date(now.getTime() + 30 * DAY_IN_MS),
+          },
+        },
+      }),
+      prisma.user.count({ where: { role: "ORGANIZER" } }),
+    ]);
+
+    return {
+      lifetimeRevenue,
+      totalBookings,
+      pendingBookings,
+      paidBookings,
+      completedBookings,
+      cancelledBookings,
+      pendingCourts,
+      activeCoupons,
+      expiringCouponsSoon,
+      totalOrganizers,
+    };
+  },
+
+  _processRevenueData(bookings: any[]) {
+    const monthMap = new Map<string, { revenue: number; bookings: number }>();
+    const organizerMap = new Map<string, any>();
+    const courtTypeMap = new Map<string, any>();
+
+    for (const booking of bookings) {
+      const amount = asAmount(booking.totalAmount);
+
+      // Monthly
+      const monthKey = formatMonthKey(booking.bookingDate);
+      const m = monthMap.get(monthKey) ?? { revenue: 0, bookings: 0 };
+      m.revenue += amount;
+      m.bookings += 1;
+      monthMap.set(monthKey, m);
+
+      // Organizer
+      const orgId = booking.court.organizer.id;
+      const o = organizerMap.get(orgId) ?? {
+        organizerId: orgId,
+        businessName: booking.court.organizer.businessName,
+        ownerName: booking.court.organizer.user.name,
+        revenue: 0,
+        paidBookings: 0,
+        courtCount: booking.court.organizer.courts.length,
+      };
+      o.revenue += amount;
+      o.paidBookings += 1;
+      organizerMap.set(orgId, o);
+
+      // Court Type
+      const typeKey = booking.court.type || "Unknown";
+      const t = courtTypeMap.get(typeKey) ?? {
+        courtType: typeKey,
+        revenue: 0,
+        paidBookings: 0,
+      };
+      t.revenue += amount;
+      t.paidBookings += 1;
+      courtTypeMap.set(typeKey, t);
+    }
+
+    const monthlyRevenue = Array.from(monthMap.entries())
+      .map(([monthKey, value]) => ({
+        monthKey,
+        monthLabel: formatMonthLabel(monthKey),
+        revenue: Number(value.revenue.toFixed(2)),
+        bookings: value.bookings,
+      }))
+      .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+
+    const topOrganizers = Array.from(organizerMap.values())
+      .map((org) => ({ ...org, revenue: Number(org.revenue.toFixed(2)) }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 6);
+
+    const courtTypePerformance = Array.from(courtTypeMap.values())
+      .map((row) => ({ ...row, revenue: Number(row.revenue.toFixed(2)) }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return {
+      monthlyRevenue,
+      topOrganizers,
+      courtTypePerformance,
+      organizerCount: organizerMap.size,
+    };
+  },
+
+  _generateAlerts(stats: any) {
+    return [
+      {
+        key: "pending-court-approvals",
+        label: "Pending court approvals",
+        value: stats.pendingCourts,
+        severity:
+          stats.pendingCourts > 10
+            ? "HIGH"
+            : stats.pendingCourts > 0
+              ? "MEDIUM"
+              : "LOW",
+      },
+      {
+        key: "pending-bookings",
+        label: "Pending booking confirmations",
+        value: stats.pendingBookings,
+        severity:
+          stats.pendingBookings > 25
+            ? "HIGH"
+            : stats.pendingBookings > 0
+              ? "MEDIUM"
+              : "LOW",
+      },
+      {
+        key: "coupons-expiring-30d",
+        label: "Coupons expiring in 30 days",
+        value: stats.expiringCouponsSoon,
+        severity:
+          stats.expiringCouponsSoon > 10
+            ? "HIGH"
+            : stats.expiringCouponsSoon > 0
+              ? "MEDIUM"
+              : "LOW",
+      },
+    ];
   },
 
   /**
@@ -151,7 +431,7 @@ const AdminService = {
   },
 
   /**
-   * Approve a pending court so it becomes publicly active.
+   * Approve a pending court
    */
   async approveCourt(courtId: string) {
     const court = await prisma.court.findUnique({ where: { id: courtId } });
@@ -168,7 +448,7 @@ const AdminService = {
   },
 
   /**
-   * Get all amenities (admin management view).
+   * Get all amenities
    */
   async getAmenities() {
     return prisma.amenity.findMany({
@@ -252,7 +532,6 @@ const AdminService = {
 
   /**
    * Delete an amenity (admin only).
-   * Amenities are independent presets; deleting one should simply detach it from courts.
    */
   async deleteAmenity(amenityId: string) {
     const amenity = await prisma.amenity.findUnique({
