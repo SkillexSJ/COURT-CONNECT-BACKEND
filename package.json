@@ -2,11 +2,11 @@
   "name": "court-connect-backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "npx tsx watch src/server.ts",
-    "build": "tsup src/server.ts src/app.ts --format esm --clean && copyfiles -u 1 src/static/**/* dist",
+    "build": "tsup src/server.ts src/app.ts --format esm --clean --splitting --shims --minify && copyfiles -u 1 src/static/**/* dist",
     "start": "node dist/server.js",
     "seed": "npx tsx src/scripts/seed.ts",
     "seed:admin": "npm run seed",
