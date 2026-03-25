@@ -2,11 +2,13 @@ import type { Request, Response, RequestHandler } from "express";
 import catchAsync from "../../helpers/catchAsync.js";
 import { sendSuccess } from "../../helpers/sendResponse.js";
 import AdminService from "./admin.service.js";
+import type { QueryParams } from "../../helpers/QueryBuilder.js";
 
 const AdminController: Record<
   | "getAllUsers"
   | "changeUserRole"
   | "getDashboardStats"
+  | "getReports"
   | "getPendingCourts"
   | "approveCourt"
   | "getAmenities"
@@ -16,7 +18,9 @@ const AdminController: Record<
   RequestHandler
 > = {
   getAllUsers: catchAsync(async (req: Request, res: Response) => {
-    const { users, meta } = await AdminService.getAllUsers(req.query as any);
+    const { users, meta } = await AdminService.getAllUsers(
+      req.query as unknown as QueryParams,
+    );
     sendSuccess(res, { data: users, meta }, "Users retrieved successfully");
   }),
 
@@ -37,9 +41,16 @@ const AdminController: Record<
     );
   }),
 
+  getReports: catchAsync(async (req: Request, res: Response) => {
+    const result = await AdminService.getReports(
+      req.query as unknown as QueryParams,
+    );
+    sendSuccess(res, { data: result }, "Reports retrieved successfully");
+  }),
+
   getPendingCourts: catchAsync(async (req: Request, res: Response) => {
     const { courts, meta } = await AdminService.getPendingCourts(
-      req.query as any,
+      req.query as unknown as QueryParams,
     );
     sendSuccess(
       res,

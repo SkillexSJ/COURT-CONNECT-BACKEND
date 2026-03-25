@@ -1,10 +1,20 @@
-import { prisma } from "../lib/prisma";
+import cron from "node-cron";
+import { prisma } from "../lib/prisma.js";
+
+let isProcessing = false;
 
 /**
- * Expire pending bookings that are older than 24 hours
- * This should be run periodically (every 5-15 minutes)
+ * Expire pending bookings that are older than their expiry time
  */
 export async function expirePendingBookings() {
+  if (isProcessing) {
+    console.warn(
+      "[BookingExpiry] Previous job still running, skipping this cycle.",
+    );
+    return;
+  }
+
+  isProcessing = true;
   try {
     const now = new Date();
 
@@ -23,70 +33,73 @@ export async function expirePendingBookings() {
     });
 
     if (expiredBookings.length === 0) {
-      console.log("[BookingExpiry] No bookings to expire");
+      // Quietly return
       return;
     }
 
-    // Update expired bookings to CANCELLED and release slots
+    console.log(
+      `[BookingExpiry] Found ${expiredBookings.length} bookings to expire...`,
+    );
+
+    // Process each booking in  transaction
     for (const booking of expiredBookings) {
-      await prisma.$transaction(async (tx) => {
-        // Mark booking as CANCELLED
-        await tx.booking.update({
-          where: { id: booking.id },
-          data: { status: "CANCELLED" },
-        });
-
-        // Delete booking slots (releases the hold on court availability)
-        await tx.bookingSlot.deleteMany({
-          where: { bookingId: booking.id },
-        });
-
-        if (booking.couponId) {
-          await tx.coupon.updateMany({
-            where: {
-              id: booking.couponId,
-              usedCount: { gt: 0 },
-            },
-            data: {
-              usedCount: {
-                decrement: 1,
-              },
-            },
+      try {
+        await prisma.$transaction(async (tx) => {
+          // CANCELLED
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: { status: "CANCELLED" },
           });
-        }
-      });
 
-      console.log(
-        `[BookingExpiry] Expired booking ${booking.bookingCode} (${booking.id})`,
-      );
+          // Delete booking slots
+          await tx.bookingSlot.deleteMany({
+            where: { bookingId: booking.id },
+          });
+
+          // Restore coupon usage
+          if (booking.couponId) {
+            await tx.coupon.update({
+              where: { id: booking.couponId },
+              data: {
+                usedCount: {
+                  decrement: 1,
+                },
+              },
+            });
+          }
+        });
+
+        console.log(`[BookingExpiry] ✅ Expired: ${booking.bookingCode}`);
+      } catch (innerError) {
+        console.error(
+          `[BookingExpiry] ❌ Failed to expire ${booking.bookingCode}:`,
+          innerError,
+        );
+      }
     }
 
     console.log(
-      `[BookingExpiry] Processed ${expiredBookings.length} expired bookings`,
+      `[BookingExpiry] Processed all ${expiredBookings.length} expired bookings.`,
     );
   } catch (error) {
-    console.error("[BookingExpiry] Error expiring bookings:", error);
+    console.error("[BookingExpiry] Global Error:", error);
+  } finally {
+    isProcessing = false;
   }
 }
 
 /**
- * Start a background job to check for expired bookings every 5 minutes
+ *  background job
  */
 export function startBookingExpiryJob() {
-  console.log("[BookingExpiry] Starting booking expiry job...");
+  console.log("[BookingExpiry] Cron job initialized (runs every 5 hours)");
 
-  // Run immediately on start
+  // Run every 5 hours
+  cron.schedule("0 */5 * * *", async () => {
+    console.log("[BookingExpiry] Running scheduled cleanup...");
+    await expirePendingBookings();
+  });
+
+  // Run once immediately on startup to catch any missed expirations
   expirePendingBookings();
-
-  // Then run every 5 minutes (300,000 ms)
-  setInterval(
-    () => {
-      expirePendingBookings();
-    },
-    5 * 60 * 1000,
-  );
-
-  console.log(
-    "[BookingExpiry] Booking expiry job started (runs every 5 minutes)",
-  );
 }

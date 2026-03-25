@@ -1,17 +1,17 @@
-import AppError from "../../helpers/AppError.js";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
-import { prisma } from "../../lib/prisma.js";
-import { COURT_STATUS } from "../../shared/constants.js";
-import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
-import { roundMoney, clampDays } from "../../helpers/utils.js";
+import AppError from "../../helpers/AppError";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
+import { prisma } from "../../lib/prisma";
+import { COURT_STATUS } from "../../shared/constants";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer";
+import { roundMoney, clampDays } from "../../helpers/utils";
 import type {
   SlotWindow,
   OrganizerProfileCreateInput,
   OrganizerProfileUpdateInput,
   RevenueBreakdownResult,
-} from "./organizer.type.js";
+} from "./organizer.type";
 import { getSlotWindow } from "./ogranizer.helper";
-import { DAY_LABELS, SLOT_WINDOWS } from "./organizer.constants.js";
+import { DAY_LABELS, SLOT_WINDOWS } from "./organizer.constants";
 
 const OrganizerService = {
   /**
@@ -128,6 +128,80 @@ const OrganizerService = {
     });
 
     return { organizers: data, meta: qb.countMeta(total) };
+  },
+
+  /**
+   * Public single organizer profile.
+   */
+  async getPublicProfile(organizerId: string) {
+    const organizer = await prisma.organizer.findUnique({
+      where: { id: organizerId },
+      select: {
+        id: true,
+        businessName: true,
+        bio: true,
+        website: true,
+        address: true,
+        isVerified: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+        courts: {
+          where: { status: COURT_STATUS.ACTIVE },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            type: true,
+            locationLabel: true,
+            basePrice: true,
+            latitude: true,
+            longitude: true,
+            status: true,
+            createdAt: true,
+            media: {
+              where: { isPrimary: true },
+              take: 1,
+              select: { url: true },
+            },
+            _count: {
+              select: {
+                bookings: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!organizer) {
+      throw new AppError(404, "Organizer profile not found");
+    }
+
+    const totalBookings = organizer.courts.reduce(
+      (sum, venue) => sum + (venue._count?.bookings ?? 0),
+      0,
+    );
+
+    return {
+      id: organizer.id,
+      businessName: organizer.businessName,
+      bio: organizer.bio,
+      website: organizer.website,
+      address: organizer.address,
+      isVerified: organizer.isVerified,
+      createdAt: organizer.createdAt,
+      user: organizer.user,
+      totalVenues: organizer.courts.length,
+      totalBookings,
+      venues: organizer.courts,
+    };
   },
 
   /**

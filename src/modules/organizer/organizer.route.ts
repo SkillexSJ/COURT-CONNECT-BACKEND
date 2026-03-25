@@ -11,6 +11,7 @@ import OrganizerController from "./organizer.controller";
 const router: Router = Router();
 
 router.get("/public", OrganizerController.getPublicDirectory);
+router.get("/public/:organizerId", OrganizerController.getPublicProfile);
 
 router.post(
   "/profile",

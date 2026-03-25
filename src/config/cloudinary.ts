@@ -54,13 +54,13 @@ const createUploader = (folder: string, maxFileSize = DEFAULT_MAX_FILE_SIZE) =>
   });
 
 /**
- * Generic uploader (kept for backward compatibility).
+ * Generic uploader
  */
 export const upload = createUploader(`${DEFAULT_FOLDER}/general`);
 
 /**
  * Single image upload middleware.
- * Example: singleImageUpload("avatar", "court-connect/users")
+ *
  */
 export const singleImageUpload = (
   fieldName: string,
@@ -70,7 +70,7 @@ export const singleImageUpload = (
 
 /**
  * Multiple image upload middleware.
- * Example: multipleImageUpload("images", 8, "court-connect/courts")
+ *
  */
 export const multipleImageUpload = (
   fieldName: string,

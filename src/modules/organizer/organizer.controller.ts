@@ -8,6 +8,7 @@ const OrganizerController: Record<
   | "getProfile"
   | "updateProfile"
   | "getPublicDirectory"
+  | "getPublicProfile"
   | "getRevenueBreakdown",
   RequestHandler
 > = {
@@ -19,6 +20,17 @@ const OrganizerController: Record<
       res,
       { data: organizers, meta },
       "Organizers retrieved successfully",
+    );
+  }),
+
+  getPublicProfile: catchAsync(async (req: Request, res: Response) => {
+    const organizerId = String(req.params.organizerId || "");
+    const result = await OrganizerService.getPublicProfile(organizerId);
+
+    sendSuccess(
+      res,
+      { data: result },
+      "Organizer profile retrieved successfully",
     );
   }),
 
