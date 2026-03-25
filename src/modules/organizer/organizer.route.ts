@@ -1,14 +1,16 @@
 import { Router } from "express";
-import authMiddleware from "../../middlewares/auth.js";
-import authorize from "../../middlewares/authorize.js";
-import { validateRequest } from "../../middlewares/validateRequest.js";
+import authMiddleware from "../../middlewares/auth";
+import authorize from "../../middlewares/authorize";
+import { validateRequest } from "../../middlewares/validateRequest";
 import {
   createOrganizerProfileSchema,
   updateOrganizerProfileSchema,
-} from "./organizer.validation.js";
-import OrganizerController from "./organizer.controller.js";
+} from "./organizer.validation";
+import OrganizerController from "./organizer.controller";
 
 const router: Router = Router();
+
+router.get("/public", OrganizerController.getPublicDirectory);
 
 router.post(
   "/profile",
@@ -23,6 +25,13 @@ router.get(
   authMiddleware(),
   authorize("ORGANIZER", "ADMIN"),
   OrganizerController.getProfile,
+);
+
+router.get(
+  "/analytics/revenue-breakdown",
+  authMiddleware(),
+  authorize("ORGANIZER"),
+  OrganizerController.getRevenueBreakdown,
 );
 
 router.patch(
