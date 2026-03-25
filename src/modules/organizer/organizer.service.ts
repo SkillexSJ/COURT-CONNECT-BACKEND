@@ -1,17 +1,17 @@
-import AppError from "../../helpers/AppError";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
-import { prisma } from "../../lib/prisma";
-import { COURT_STATUS } from "../../shared/constants";
-import { getOrganizerByUserId } from "../../helpers/getOrganizer";
-import { roundMoney, clampDays } from "../../helpers/utils";
+import AppError from "../../helpers/AppError.js";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
+import { prisma } from "../../lib/prisma.js";
+import { COURT_STATUS } from "../../shared/constants.js";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
+import { roundMoney, clampDays } from "../../helpers/utils.js";
 import type {
   SlotWindow,
   OrganizerProfileCreateInput,
   OrganizerProfileUpdateInput,
   RevenueBreakdownResult,
-} from "./organizer.type";
-import { getSlotWindow } from "./ogranizer.helper";
-import { DAY_LABELS, SLOT_WINDOWS } from "./organizer.constants";
+} from "./organizer.type.js";
+import { getSlotWindow } from "./ogranizer.helper.js";
+import { DAY_LABELS, SLOT_WINDOWS } from "./organizer.constants.js";
 
 const OrganizerService = {
   /**

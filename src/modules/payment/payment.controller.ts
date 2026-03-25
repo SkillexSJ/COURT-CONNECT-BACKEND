@@ -1,7 +1,7 @@
 import type { Request, Response, RequestHandler } from "express";
-import catchAsync from "../../helpers/catchAsync";
-import { sendSuccess } from "../../helpers/sendResponse";
-import PaymentService from "./payment.service";
+import catchAsync from "../../helpers/catchAsync.js";
+import { sendSuccess } from "../../helpers/sendResponse.js";
+import PaymentService from "./payment.service.js";
 
 const PaymentController: Record<
   "initiatePayment" | "handleWebhook",

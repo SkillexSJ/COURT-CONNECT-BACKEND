@@ -1,5 +1,5 @@
-import { prisma } from "../../lib/prisma";
-import AppError from "../../helpers/AppError";
+import { prisma } from "../../lib/prisma.js";
+import AppError from "../../helpers/AppError.js";
 
 const UserService = {
   /**

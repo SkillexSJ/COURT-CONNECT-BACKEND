@@ -1,11 +1,11 @@
-import { prisma } from "../../lib/prisma";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
-import AppError from "../../helpers/AppError";
-import { getOrganizerByUserId } from "../../helpers/getOrganizer";
+import { prisma } from "../../lib/prisma.js";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
+import AppError from "../../helpers/AppError.js";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
 import type {
   CreateAnnouncementInput,
   UpdateAnnouncementInput,
-} from "./announcement.type";
+} from "./announcement.type.js";
 
 const AnnouncementService = {
   /**

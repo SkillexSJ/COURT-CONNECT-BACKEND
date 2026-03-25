@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
-import AppError from "../../helpers/AppError";
-import { prisma } from "../../lib/prisma";
-import { stripe } from "../../lib/stripe";
+import AppError from "../../helpers/AppError.js";
+import { prisma } from "../../lib/prisma.js";
+import { stripe } from "../../lib/stripe.js";
 import { envVars } from "../../config/env.js";
 
 const PaymentService = {

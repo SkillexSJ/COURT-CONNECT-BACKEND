@@ -1,16 +1,16 @@
-import { prisma } from "../../lib/prisma";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
-import AppError from "../../helpers/AppError";
-import { generateBookingCode } from "../../shared/constants";
-import { getOrganizerByUserId } from "../../helpers/getOrganizer";
-import CouponService from "../coupon/coupon.service";
-import type { CreateBookingInput, BookingResult } from "./booking.type";
+import { prisma } from "../../lib/prisma.js";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
+import AppError from "../../helpers/AppError.js";
+import { generateBookingCode } from "../../shared/constants.js";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
+import CouponService from "../coupon/coupon.service.js";
+import type { CreateBookingInput, BookingResult } from "./booking.type.js";
 import {
   calculateBookingSubtotal,
   getBookingExpiryDate,
   hasBookingAccess,
   restoreCouponUsage,
-} from "./booking.helper";
+} from "./booking.helper.js";
 
 const BookingService = {
   /**

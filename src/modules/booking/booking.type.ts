@@ -1,5 +1,4 @@
-import { BookingStatus, DiscountType } from "../../generated/prisma/enums";
-
+import { BookingStatus, DiscountType } from "../../generated/prisma/enums.js";
 export interface CreateBookingInput {
   courtId: string;
   bookingDate: string;

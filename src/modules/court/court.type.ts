@@ -1,4 +1,4 @@
-import { CourtStatus } from "../../generated/prisma/enums";
+import { CourtStatus } from "../../generated/prisma/enums.js";
 
 export interface CreateCourtInput {
   name: string;

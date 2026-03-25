@@ -1,7 +1,7 @@
 import { Request, Response, RequestHandler } from "express";
-import catchAsync from "../../helpers/catchAsync";
-import { sendSuccess, sendCreated } from "../../helpers/sendResponse";
-import OrganizerService from "./organizer.service";
+import catchAsync from "../../helpers/catchAsync.js";
+import { sendSuccess, sendCreated } from "../../helpers/sendResponse.js";
+import OrganizerService from "./organizer.service.js";
 
 const OrganizerController: Record<
   | "createProfile"

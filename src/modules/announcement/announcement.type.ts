@@ -1,7 +1,7 @@
 import {
   AnnouncementAudience,
   AnnouncementType,
-} from "../../generated/prisma/enums";
+} from "../../generated/prisma/enums.js";
 
 export interface CreateAnnouncementInput {
   title: string;

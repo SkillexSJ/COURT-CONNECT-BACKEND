@@ -1,8 +1,8 @@
 import type { Request, Response, RequestHandler } from "express";
-import catchAsync from "../../helpers/catchAsync";
-import { sendCreated, sendSuccess } from "../../helpers/sendResponse";
-import CouponService from "./coupon.service";
-import type { QueryParams } from "../../helpers/QueryBuilder";
+import catchAsync from "../../helpers/catchAsync.js";
+import { sendCreated, sendSuccess } from "../../helpers/sendResponse.js";
+import CouponService from "./coupon.service.js";
+import type { QueryParams } from "../../helpers/QueryBuilder.js";
 
 const CouponController: Record<
   | "createCoupon"

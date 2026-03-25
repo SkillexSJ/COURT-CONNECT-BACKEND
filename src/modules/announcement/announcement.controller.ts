@@ -1,8 +1,8 @@
 import { Request, Response, RequestHandler } from "express";
-import catchAsync from "../../helpers/catchAsync";
-import { sendSuccess, sendCreated } from "../../helpers/sendResponse";
-import AnnouncementService from "./announcement.service";
-import type { QueryParams } from "../../helpers/QueryBuilder";
+import catchAsync from "../../helpers/catchAsync.js";
+import { sendSuccess, sendCreated } from "../../helpers/sendResponse.js";
+import AnnouncementService from "./announcement.service.js";
+import type { QueryParams } from "../../helpers/QueryBuilder.js";
 
 const AnnouncementController: Record<
   | "createAnnouncement"

@@ -1,4 +1,4 @@
-import { DiscountType } from "../../generated/prisma/enums";
+import { DiscountType } from "../../generated/prisma/enums.js";
 
 export type CouponDiscountType = "PERCENTAGE" | "FIXED";
 

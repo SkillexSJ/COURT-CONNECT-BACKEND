@@ -1,12 +1,12 @@
 import { Router } from "express";
-import authMiddleware, { optionalAuth } from "../../middlewares/auth";
-import authorize from "../../middlewares/authorize";
-import { validateRequest } from "../../middlewares/validateRequest";
+import authMiddleware, { optionalAuth } from "../../middlewares/auth.js";
+import authorize from "../../middlewares/authorize.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
 import {
   createAnnouncementSchema,
   updateAnnouncementSchema,
-} from "./announcement.validation";
-import AnnouncementController from "./announcement.controller";
+} from "./announcement.validation.js";
+import AnnouncementController from "./announcement.controller.js";
 
 const router: Router = Router();
 

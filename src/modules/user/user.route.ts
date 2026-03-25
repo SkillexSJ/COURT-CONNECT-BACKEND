@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { singleImageUpload } from "../../config/cloudinary";
-import authMiddleware from "../../middlewares/auth";
-import { validateRequest } from "../../middlewares/validateRequest";
+import { singleImageUpload } from "../../config/cloudinary.js";
+import authMiddleware from "../../middlewares/auth.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
 
 import UserController from "./user.controller.js";
-import { updateUserProfileSchema } from "./user.validation";
+import { updateUserProfileSchema } from "./user.validation.js";
 
 const router: Router = Router();
 

@@ -1,5 +1,5 @@
-import { Prisma } from "../../generated/prisma/client";
-import { BookingResult } from "./booking.type";
+import { Prisma } from "../../generated/prisma/client.js";
+import { BookingResult } from "./booking.type.js";
 
 /**
  * Calculates the subtotal for a booking based on slot templates and court base price.

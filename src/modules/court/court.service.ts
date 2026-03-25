@@ -1,15 +1,15 @@
-import { prisma } from "../../lib/prisma";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
-import AppError from "../../helpers/AppError";
-import { COURT_STATUS, slugify } from "../../shared/constants";
-import { getOrganizerByUserId } from "../../helpers/getOrganizer";
-import cloudinary from "../../config/cloudinary";
+import { prisma } from "../../lib/prisma.js";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
+import AppError from "../../helpers/AppError.js";
+import { COURT_STATUS, slugify } from "../../shared/constants.js";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
+import cloudinary from "../../config/cloudinary.js";
 import type {
   CreateCourtInput,
   UpdateCourtInput,
   CourtMediaUploadResult,
   CourtMemberResult,
-} from "./court.type";
+} from "./court.type.js";
 
 const CourtService = {
   /**

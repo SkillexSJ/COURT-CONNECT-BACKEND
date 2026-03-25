@@ -3,7 +3,7 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import { Prisma } from "../generated/prisma/client";
+import { Prisma } from "../generated/prisma/client.js";
 import { ZodError } from "zod";
 import multer from "multer";
 

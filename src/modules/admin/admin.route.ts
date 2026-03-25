@@ -3,11 +3,11 @@ import {
   changeUserRoleSchema,
   createAmenitySchema,
   updateAmenitySchema,
-} from "./admin.validation";
-import authorize from "../../middlewares/authorize";
-import authMiddleware from "../../middlewares/auth";
-import AdminController from "./admin.controller";
-import { validateRequest } from "../../middlewares/validateRequest";
+} from "./admin.validation.js";
+import authorize from "../../middlewares/authorize.js";
+import authMiddleware from "../../middlewares/auth.js";
+import AdminController from "./admin.controller.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
 
 const router: Router = Router();
 

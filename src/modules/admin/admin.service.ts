@@ -1,14 +1,14 @@
-import { prisma } from "../../lib/prisma";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
-import AppError from "../../helpers/AppError";
-import { COURT_STATUS } from "../../shared/constants";
+import { prisma } from "../../lib/prisma.js";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
+import AppError from "../../helpers/AppError.js";
+import { COURT_STATUS } from "../../shared/constants.js";
 import {
   DAY_IN_MS,
   asAmount,
   formatMonthKey,
   formatMonthLabel,
   parseDays,
-} from "./admin.helpers";
+} from "./admin.helpers.js";
 
 const AdminService = {
   /**

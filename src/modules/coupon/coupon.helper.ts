@@ -1,7 +1,7 @@
-import AppError from "../../helpers/AppError";
-import { roundMoney, asNumber } from "../../helpers/utils";
-import { DISCOUNT_TYPE } from "../../shared/constants";
-import { CouponShape } from "./coupon.type";
+import AppError from "../../helpers/AppError.js";
+import { roundMoney, asNumber } from "../../helpers/utils.js";
+import { DISCOUNT_TYPE } from "../../shared/constants.js";
+import { CouponShape } from "./coupon.type.js";
 
 /**
  * Normalizes a coupon code

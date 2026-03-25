@@ -1,13 +1,13 @@
 import { Router } from "express";
-import authMiddleware from "../../middlewares/auth";
-import authorize from "../../middlewares/authorize";
-import { validateRequest } from "../../middlewares/validateRequest";
-import CouponController from "./coupon.controller";
+import authMiddleware from "../../middlewares/auth.js";
+import authorize from "../../middlewares/authorize.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
+import CouponController from "./coupon.controller.js";
 import {
   createCouponSchema,
   updateCouponSchema,
   validateCouponSchema,
-} from "./coupon.validation";
+} from "./coupon.validation.js";
 
 const router: Router = Router();
 

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import authMiddleware from "../../middlewares/auth";
-import { validateRequest } from "../../middlewares/validateRequest";
-import PaymentController from "./payment.controller";
-import { initiatePaymentSchema } from "./payment.validation";
+import authMiddleware from "../../middlewares/auth.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
+import PaymentController from "./payment.controller.js";
+import { initiatePaymentSchema } from "./payment.validation.js";
 
 const router: Router = Router();
 

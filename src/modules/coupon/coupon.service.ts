@@ -1,19 +1,19 @@
-import { prisma } from "../../lib/prisma";
-import AppError from "../../helpers/AppError";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
-import { asNumber, roundMoney } from "../../helpers/utils";
+import { prisma } from "../../lib/prisma.js";
+import AppError from "../../helpers/AppError.js";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
+import { asNumber, roundMoney } from "../../helpers/utils.js";
 import {
   normalizeCouponCode,
   validateDiscountConfig,
   assertCouponRules,
   calculateDiscount,
-} from "./coupon.helper";
+} from "./coupon.helper.js";
 import type {
   CreateCouponInput,
   UpdateCouponInput,
   ValidateCouponResult,
   CouponShape,
-} from "./coupon.type";
+} from "./coupon.type.js";
 
 const CouponService = {
   /**

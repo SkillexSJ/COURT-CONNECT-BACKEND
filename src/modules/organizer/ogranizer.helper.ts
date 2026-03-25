@@ -1,4 +1,4 @@
-import { SLOT_WINDOWS, SlotWindow } from "./organizer.constants";
+import { SLOT_WINDOWS, SlotWindow } from "./organizer.constants.js";
 
 export const getSlotWindow = (startMinute: number): SlotWindow => {
   const found = SLOT_WINDOWS.find(
