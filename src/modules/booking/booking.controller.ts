@@ -1,7 +1,8 @@
 import { Request, Response, RequestHandler } from "express";
-import catchAsync from "../../helpers/catchAsync.js";
-import { sendSuccess, sendCreated } from "../../helpers/sendResponse.js";
-import BookingService from "./booking.service.js";
+import catchAsync from "../../helpers/catchAsync";
+import { sendSuccess, sendCreated } from "../../helpers/sendResponse";
+import BookingService from "./booking.service";
+import type { QueryParams } from "../../helpers/QueryBuilder";
 
 const BookingController: Record<
   | "createBooking"
@@ -21,9 +22,13 @@ const BookingController: Record<
   getUserBookings: catchAsync(async (req: Request, res: Response) => {
     const { bookings, meta } = await BookingService.getUserBookings(
       req.user!.id,
-      req.query as any,
+      req.query as unknown as QueryParams,
     );
-    sendSuccess(res, { data: bookings, meta }, "Bookings retrieved successfully");
+    sendSuccess(
+      res,
+      { data: bookings, meta },
+      "Bookings retrieved successfully",
+    );
   }),
 
   getBookingById: catchAsync(async (req: Request, res: Response) => {
@@ -66,9 +71,13 @@ const BookingController: Record<
       req.params.courtId as string,
       req.user!.id,
       req.user!.role,
-      req.query as any,
+      req.query as unknown as QueryParams,
     );
-    sendSuccess(res, { data: bookings, meta }, "Court bookings retrieved successfully");
+    sendSuccess(
+      res,
+      { data: bookings, meta },
+      "Court bookings retrieved successfully",
+    );
   }),
 };
 

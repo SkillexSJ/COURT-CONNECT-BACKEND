@@ -1,8 +1,16 @@
-import { prisma } from "../../lib/prisma.js";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
-import AppError from "../../helpers/AppError.js";
-import { generateBookingCode } from "../../shared/constants.js";
-import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
+import { prisma } from "../../lib/prisma";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
+import AppError from "../../helpers/AppError";
+import { generateBookingCode } from "../../shared/constants";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer";
+import CouponService from "../coupon/coupon.service";
+import type { CreateBookingInput, BookingResult } from "./booking.type";
+import {
+  calculateBookingSubtotal,
+  getBookingExpiryDate,
+  hasBookingAccess,
+  restoreCouponUsage,
+} from "./booking.helper";
 
 const BookingService = {
   /**
@@ -10,13 +18,8 @@ const BookingService = {
    */
   async createBooking(
     userId: string,
-    data: {
-      courtId: string;
-      bookingDate: string;
-      slotTemplateIds: string[];
-      couponCode?: string;
-    },
-  ) {
+    data: CreateBookingInput,
+  ): Promise<BookingResult | null> {
     const { courtId, bookingDate, slotTemplateIds } = data;
 
     if (!slotTemplateIds || slotTemplateIds.length === 0) {
@@ -25,7 +28,8 @@ const BookingService = {
 
     const court = await prisma.court.findUnique({ where: { id: courtId } });
     if (!court) throw new AppError(404, "Court not found");
-    if (court.status !== "ACTIVE") throw new AppError(400, "Court is not available for booking");
+    if (court.status !== "ACTIVE")
+      throw new AppError(400, "Court is not available for booking");
 
     const targetDate = new Date(bookingDate);
 
@@ -39,7 +43,10 @@ const BookingService = {
     });
 
     if (templates.length !== slotTemplateIds.length) {
-      throw new AppError(400, "One or more selected slots are invalid or inactive");
+      throw new AppError(
+        400,
+        "One or more selected slots are invalid or inactive",
+      );
     }
 
     // Check each slot for double-booking
@@ -63,30 +70,26 @@ const BookingService = {
       }
     }
 
-    // Calculate pricing
-    const totalAmount = templates.reduce((sum, t) => {
-      const price = t.priceOverride ?? court.basePrice;
-      return sum + Number(price);
-    }, 0);
+    // Calculate slot subtotal using helper
+    const subtotalAmount = calculateBookingSubtotal(templates, court.basePrice);
 
-    // Handle coupon
+    // Handle coupon and discount
     let couponId: string | null = null;
+    let totalAmount = subtotalAmount;
+
     if (data.couponCode) {
-      const coupon = await prisma.coupon.findUnique({
-        where: { code: data.couponCode },
-      });
-      if (coupon && coupon.isActive) {
-        if (coupon.expiresAt && coupon.expiresAt < new Date()) {
-          throw new AppError(400, "Coupon has expired");
-        }
-        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-          throw new AppError(400, "Coupon usage limit reached");
-        }
-        couponId = coupon.id;
-      }
+      const couponResult = await CouponService.validateCouponForBooking(
+        data.couponCode,
+        subtotalAmount,
+      );
+
+      couponId = couponResult.coupon.id;
+      totalAmount = couponResult.finalAmount;
     }
 
     const bookingCode = generateBookingCode();
+    // Use helper for expiry
+    const expiresAt = getBookingExpiryDate();
 
     // Create booking + slots in a transaction
     const booking = await prisma.$transaction(async (tx) => {
@@ -98,6 +101,7 @@ const BookingService = {
           couponId,
           bookingDate: targetDate,
           totalAmount,
+          expiresAt,
         },
       });
 
@@ -123,13 +127,21 @@ const BookingService = {
       return newBooking;
     });
 
-    return prisma.booking.findUnique({
+    return (await prisma.booking.findUnique({
       where: { id: booking.id },
       include: {
         slots: true,
         court: { select: { id: true, name: true, slug: true } },
+        coupon: {
+          select: {
+            id: true,
+            code: true,
+            discountType: true,
+            discountValue: true,
+          },
+        },
       },
-    });
+    })) as BookingResult | null;
   },
 
   /**
@@ -151,14 +163,40 @@ const BookingService = {
         skip,
         take,
         include: {
-          court: { select: { id: true, name: true, slug: true, type: true } },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
+          court: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              type: true,
+              media: {
+                select: {
+                  url: true,
+                  isPrimary: true,
+                },
+                orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+                take: 1,
+              },
+            },
+          },
           slots: { orderBy: { startMinute: "asc" } },
         },
       }),
       prisma.booking.count({ where }),
     ]);
 
-    return { bookings, meta: qb.countMeta(total) };
+    return {
+      bookings: bookings as unknown as BookingResult[],
+      meta: qb.countMeta(total),
+    };
   },
 
   /**
@@ -170,93 +208,116 @@ const BookingService = {
       include: {
         court: {
           select: {
-            id: true, name: true, slug: true, type: true, organizerId: true,
+            id: true,
+            name: true,
+            slug: true,
+            type: true,
+            organizerId: true,
             organizer: { select: { userId: true } },
           },
         },
         slots: { orderBy: { startMinute: "asc" } },
         user: { select: { id: true, name: true, email: true } },
-        coupon: { select: { code: true, discountType: true, discountValue: true } },
+        coupon: {
+          select: { code: true, discountType: true, discountValue: true },
+        },
       },
     });
 
     if (!booking) throw new AppError(404, "Booking not found");
 
-    // Access control: user can see own, organizer can see their court's, admin sees all
-    const isOwner = booking.userId === userId;
-    const isOrganizerOwner = booking.court.organizer.userId === userId;
-    const isAdmin = userRole === "ADMIN";
-
-    if (!isOwner && !isOrganizerOwner && !isAdmin) {
+    // Use helper for access control
+    if (!hasBookingAccess(booking, userId, userRole)) {
       throw new AppError(403, "Access denied");
     }
 
-    return booking;
+    return booking as unknown as BookingResult;
   },
 
   /**
-   * Approve a booking → set status to PAID (Organizer/Admin).
+   * Approve a booking
    */
   async approveBooking(bookingId: string, userId: string) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { court: { select: { organizer: { select: { userId: true } } } } },
+      include: {
+        court: { select: { organizer: { select: { userId: true } } } },
+      },
     });
 
     if (!booking) throw new AppError(404, "Booking not found");
     if (booking.status !== "PENDING") {
-      throw new AppError(400, `Cannot approve a booking with status: ${booking.status}`);
+      throw new AppError(
+        400,
+        `Cannot approve a booking with status: ${booking.status}`,
+      );
     }
 
-    return prisma.booking.update({
+    return (await prisma.booking.update({
       where: { id: bookingId },
       data: {
         status: "PAID",
         paidAt: new Date(),
       },
-    });
+    })) as unknown as BookingResult;
   },
 
   /**
-   * Reject a booking → set status to CANCELLED and free slots (Organizer/Admin).
+   * Reject a booking
    */
   async rejectBooking(bookingId: string, userId: string, reason?: string) {
-    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
 
     if (!booking) throw new AppError(404, "Booking not found");
     if (booking.status !== "PENDING") {
-      throw new AppError(400, `Cannot reject a booking with status: ${booking.status}`);
+      throw new AppError(
+        400,
+        `Cannot reject a booking with status: ${booking.status}`,
+      );
     }
 
-    return prisma.$transaction(async (tx) => {
+    return (await prisma.$transaction(async (tx) => {
       const updated = await tx.booking.update({
         where: { id: bookingId },
         data: { status: "CANCELLED" },
       });
 
-      // Remove booking slots so the time becomes available again
+      // Remove booking slots
       await tx.bookingSlot.deleteMany({ where: { bookingId } });
 
+      // Use helper to restore coupon
+      if (booking.couponId) {
+        await restoreCouponUsage(tx, booking.couponId);
+      }
+
       return updated;
-    });
+    })) as unknown as BookingResult;
   },
 
   /**
-   * Cancel a booking (User owner or Admin).
+   * Cancel a booking (User owner or Admin)
    */
   async cancelBooking(bookingId: string, userId: string, userRole: string) {
-    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
 
     if (!booking) throw new AppError(404, "Booking not found");
 
     const canCancel = booking.userId === userId || userRole === "ADMIN";
-    if (!canCancel) throw new AppError(403, "You can only cancel your own bookings");
+    if (!canCancel)
+      throw new AppError(403, "You can only cancel your own bookings");
 
     if (!["PENDING", "PAID"].includes(booking.status)) {
-      throw new AppError(400, `Cannot cancel a booking with status: ${booking.status}`);
+      throw new AppError(
+        400,
+        `Cannot cancel a booking with status: ${booking.status}`,
+      );
     }
 
-    return prisma.$transaction(async (tx) => {
+    return (await prisma.$transaction(async (tx) => {
       const updated = await tx.booking.update({
         where: { id: bookingId },
         data: { status: "CANCELLED" },
@@ -265,15 +326,25 @@ const BookingService = {
       // Free up slots
       await tx.bookingSlot.deleteMany({ where: { bookingId } });
 
+      // Use helper to restore coupon
+      if (booking.status === "PENDING" && booking.couponId) {
+        await restoreCouponUsage(tx, booking.couponId);
+      }
+
       return updated;
-    });
+    })) as unknown as BookingResult;
   },
 
   /**
-   * Get bookings for a specific court (Organizer dashboard).
+   * Get bookings for a specific court (for Organizer dashboard).
    */
-  async getCourtBookings(courtId: string, userId: string, userRole: string, query: QueryParams) {
-    // Verify organizer owns this court (unless admin)
+  async getCourtBookings(
+    courtId: string,
+    userId: string,
+    userRole: string,
+    query: QueryParams,
+  ) {
+    // Verify organizer owns this court
     if (userRole !== "ADMIN") {
       const organizer = await getOrganizerByUserId(userId);
       const court = await prisma.court.findUnique({ where: { id: courtId } });
@@ -299,14 +370,35 @@ const BookingService = {
         skip,
         take,
         include: {
-          user: { select: { id: true, name: true, email: true } },
+          user: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+          court: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              type: true,
+              media: {
+                select: {
+                  url: true,
+                  isPrimary: true,
+                },
+                orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+                take: 1,
+              },
+            },
+          },
           slots: { orderBy: { startMinute: "asc" } },
         },
       }),
       prisma.booking.count({ where }),
     ]);
 
-    return { bookings, meta: qb.countMeta(total) };
+    return {
+      bookings: bookings as unknown as BookingResult[],
+      meta: qb.countMeta(total),
+    };
   },
 };
 

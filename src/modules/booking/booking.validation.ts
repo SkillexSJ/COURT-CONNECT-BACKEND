@@ -11,6 +11,7 @@ export const createBookingSchema = z.object({
   couponCode: z
     .string("Coupon code must be a string")
     .min(1, "Coupon code cannot be empty")
+    .transform((value) => value.trim().toUpperCase())
     .optional(),
 });
 
