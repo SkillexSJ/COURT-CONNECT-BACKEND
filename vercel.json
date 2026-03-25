@@ -1,14 +1,14 @@
 {
   "version": 2,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.ts"
+    }
+  ],
   "functions": {
     "api/index.ts": {
-      "runtime": "@vercel/node"
+      "includeFiles": "src/static/**"
     }
-  },
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/index.ts"
-    }
-  ]
+  }
 }
