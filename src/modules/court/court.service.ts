@@ -1,28 +1,29 @@
-import { prisma } from "../../lib/prisma.js";
-import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder.js";
-import AppError from "../../helpers/AppError.js";
-import { COURT_STATUS, slugify } from "../../shared/constants.js";
-import { getOrganizerByUserId } from "../../helpers/getOrganizer.js";
-import cloudinary from "../../config/cloudinary.js";
+import { prisma } from "../../lib/prisma";
+import { QueryBuilder, type QueryParams } from "../../helpers/QueryBuilder";
+import AppError from "../../helpers/AppError";
+import { COURT_STATUS, slugify } from "../../shared/constants";
+import { getOrganizerByUserId } from "../../helpers/getOrganizer";
+import cloudinary from "../../config/cloudinary";
+import type {
+  CreateCourtInput,
+  UpdateCourtInput,
+  CourtMediaUploadResult,
+  CourtMemberResult,
+} from "./court.type";
 
 const CourtService = {
   /**
-   * Create a new court (Organizer).
+   * Create a new court
    */
-  async createCourt(
-    userId: string,
-    data: {
-      name: string;
-      type: string;
-      locationLabel: string;
-      description?: string;
-      basePrice: number;
-      latitude?: number;
-      longitude?: number;
-      amenityIds?: string[];
-    },
-  ) {
+  async createCourt(userId: string, data: CreateCourtInput) {
     const organizer = await getOrganizerByUserId(userId);
+
+    if (!organizer.isVerified) {
+      throw new AppError(
+        403,
+        "Your organizer profile is not verified yet. Please contact admin.",
+      );
+    }
 
     const baseSlug = slugify(data.name);
     let slug = baseSlug;
@@ -68,7 +69,7 @@ const CourtService = {
   },
 
   /**
-   * Upload court media (primary + gallery) and persist Cloudinary metadata.
+   * Upload court media (primary + gallery)
    */
   async uploadCourtMedia(
     courtId: string,
@@ -76,7 +77,7 @@ const CourtService = {
     userRole: string,
     files: Express.Multer.File[],
     primaryIndex?: number,
-  ) {
+  ): Promise<CourtMediaUploadResult[]> {
     if (!files || files.length === 0) {
       throw new AppError(400, "At least one image is required");
     }
@@ -130,7 +131,7 @@ const CourtService = {
         };
       });
 
-      return prisma.$transaction(async (tx) => {
+      return (await prisma.$transaction(async (tx) => {
         if (validPrimaryIndex !== undefined) {
           await tx.courtMedia.updateMany({
             where: { courtId, isPrimary: true },
@@ -144,8 +145,9 @@ const CourtService = {
           where: { courtId },
           orderBy: [{ isPrimary: "desc" }, { id: "desc" }],
         });
-      });
+      })) as CourtMediaUploadResult[];
     } catch (error) {
+      // If any error occurs, attempt to clean up uploaded images from Cloudinary
       if (uploadedPublicIds.length > 0) {
         await Promise.allSettled(
           uploadedPublicIds.map((publicId) =>
@@ -162,7 +164,7 @@ const CourtService = {
   },
 
   /**
-   * Get all courts (public, paginated, filterable).
+   * Get all courts
    */
   async getAllCourts(query: QueryParams) {
     const qb = new QueryBuilder(query, {
@@ -174,12 +176,12 @@ const CourtService = {
       .sort()
       .paginate();
 
-    // Public listing should only show approved/active courts unless status is explicitly requested.
+    // Public listing should only show approved/active
     if (!query.status) {
       qb.addCondition({ status: COURT_STATUS.ACTIVE });
     }
 
-    // Filter by amenities: ?amenityIds=id1,id2,id3
+    // Filter by amenities
     const rawAmenityIds = query.amenityIds;
     const amenityIds = (
       Array.isArray(rawAmenityIds)
@@ -200,6 +202,11 @@ const CourtService = {
           },
         },
       });
+    }
+
+    // Filter by organization owner when requested
+    if (typeof query.organizerId === "string" && query.organizerId.trim()) {
+      qb.addCondition({ organizerId: query.organizerId.trim() });
     }
 
     const { where, orderBy, skip, take } = qb.build();
@@ -225,13 +232,18 @@ const CourtService = {
             select: {
               id: true,
               businessName: true,
-              user: { select: { name: true } },
+              user: { select: { id: true, name: true, avatarUrl: true } },
             },
           },
           media: {
             where: { isPrimary: true },
             take: 1,
             select: { url: true },
+          },
+          _count: {
+            select: {
+              bookings: true,
+            },
           },
         },
       }),
@@ -242,7 +254,7 @@ const CourtService = {
   },
 
   /**
-   * Get a single court by slug (public).
+   * Get a single court by slug (public)
    */
   async getCourtBySlug(slug: string) {
     const court = await prisma.court.findUnique({
@@ -311,23 +323,9 @@ const CourtService = {
   },
 
   /**
-   * Update a court (organizer must own it).
+   * Update a court organizer must own it
    */
-  async updateCourt(
-    courtId: string,
-    userId: string,
-    data: Partial<{
-      name: string;
-      type: string;
-      locationLabel: string;
-      description: string;
-      basePrice: number;
-      latitude: number;
-      longitude: number;
-      status: string;
-      amenityIds: string[];
-    }>,
-  ) {
+  async updateCourt(courtId: string, userId: string, data: UpdateCourtInput) {
     const organizer = await getOrganizerByUserId(userId);
     const court = await prisma.court.findUnique({ where: { id: courtId } });
     if (!court) throw new AppError(404, "Court not found");
@@ -389,7 +387,7 @@ const CourtService = {
   },
 
   /**
-   * Soft-delete a court (sets status to HIDDEN).
+   * Soft-delete a court
    */
   async softDeleteCourt(courtId: string, userId: string, userRole: string) {
     const court = await prisma.court.findUnique({ where: { id: courtId } });
@@ -411,7 +409,7 @@ const CourtService = {
   },
 
   /**
-   * Get amenities list for organizer court creation/editing.
+   * Get amenities list for organizer.
    */
   async getAmenities() {
     return prisma.amenity.findMany({
@@ -425,7 +423,7 @@ const CourtService = {
   },
 
   /**
-   * Get members (users who have booked) of a court.
+   * Get members users who have booked of a court.
    */
   async getCourtMembers(courtId: string, query: QueryParams) {
     const qb = new QueryBuilder(query)
@@ -454,7 +452,10 @@ const CourtService = {
       prisma.booking.count({ where }),
     ]);
 
-    return { members: bookings, meta: qb.countMeta(total) };
+    return {
+      members: bookings as unknown as CourtMemberResult[],
+      meta: qb.countMeta(total),
+    };
   },
 };
 

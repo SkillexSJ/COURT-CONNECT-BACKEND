@@ -2,6 +2,7 @@ import { Request, Response, RequestHandler } from "express";
 import catchAsync from "../../helpers/catchAsync.js";
 import { sendSuccess, sendCreated } from "../../helpers/sendResponse.js";
 import CourtService from "./court.service.js";
+import type { QueryParams } from "../../helpers/QueryBuilder.js";
 
 const CourtController: Record<
   | "createCourt"
@@ -39,7 +40,9 @@ const CourtController: Record<
   }),
 
   getAllCourts: catchAsync(async (req: Request, res: Response) => {
-    const { courts, meta } = await CourtService.getAllCourts(req.query as any);
+    const { courts, meta } = await CourtService.getAllCourts(
+      req.query as unknown as QueryParams,
+    );
     sendSuccess(res, { data: courts, meta }, "Courts retrieved successfully");
   }),
 
@@ -56,7 +59,7 @@ const CourtController: Record<
   getOrganizerCourts: catchAsync(async (req: Request, res: Response) => {
     const { courts, meta } = await CourtService.getOrganizerCourts(
       req.user!.id,
-      req.query as any,
+      req.query as unknown as QueryParams,
     );
     sendSuccess(
       res,
@@ -68,7 +71,7 @@ const CourtController: Record<
   getCourtMembers: catchAsync(async (req: Request, res: Response) => {
     const { members, meta } = await CourtService.getCourtMembers(
       req.params.courtId as string,
-      req.query as any,
+      req.query as unknown as QueryParams,
     );
     sendSuccess(
       res,
