@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import AppError from "../../helpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { stripe } from "../../lib/stripe";
-import { envVars } from "../../config/env";
+import { envVars } from "../../config/env.js";
 
 const PaymentService = {
   async initiatePayment(bookingId: string, userId: string) {
