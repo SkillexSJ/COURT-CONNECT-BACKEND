@@ -22,6 +22,7 @@ import { CouponRoutes } from "./modules/coupon/coupon.route.js";
 import { AnnouncementRoutes } from "./modules/announcement/announcement.route.js";
 import { AdminRoutes } from "./modules/admin/admin.route.js";
 import { OrganizerRoutes } from "./modules/organizer/organizer.route.js";
+import { ReviewRoutes } from "./modules/review/review.route.js";
 
 /**
  * MIDDLEWARES
@@ -64,6 +65,7 @@ app.use("/api/payments", PaymentRoutes);
 app.use("/api/announcements", AnnouncementRoutes);
 app.use("/api/admin", AdminRoutes);
 app.use("/api/organizer", OrganizerRoutes);
+app.use("/api/reviews", ReviewRoutes);
 
 // Health check
 app.get("/health", (_req, res) => {
