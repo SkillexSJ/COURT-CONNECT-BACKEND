@@ -142,6 +142,7 @@ const OrganizerService = {
         bio: true,
         website: true,
         address: true,
+        phoneNumber: true,
         isVerified: true,
         createdAt: true,
         user: {
@@ -195,6 +196,7 @@ const OrganizerService = {
       bio: organizer.bio,
       website: organizer.website,
       address: organizer.address,
+      phoneNumber: organizer.phoneNumber,
       isVerified: organizer.isVerified,
       createdAt: organizer.createdAt,
       user: organizer.user,
