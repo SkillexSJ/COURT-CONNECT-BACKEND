@@ -15,6 +15,7 @@ export const auth = betterAuth({
     "http://localhost:3000",
     "http://localhost:5000",
     "http://192.168.9.142:3000",
+    "https://court-connect-frontend.vercel.app"
     envVars.CLIENT_URL || "http://localhost:3000",
   ],
 

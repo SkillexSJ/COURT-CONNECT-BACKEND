@@ -41,7 +41,11 @@ app.set("trust proxy", true);
 
 app.use(
   cors({
-    origin: [envVars.CLIENT_URL, "http://192.168.9.142:3000"],
+    origin: [
+      envVars.CLIENT_URL,
+      "http://192.168.9.142:3000",
+      "https://court-connect-frontend.vercel.app",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   }),
