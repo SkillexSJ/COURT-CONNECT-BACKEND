@@ -1,24 +1,25 @@
 model Court {
-  id            String             @id @default(uuid()) @db.Uuid
-  organizerId   String             @db.Uuid
+  id            String      @id @default(uuid()) @db.Uuid
+  organizerId   String      @db.Uuid
   name          String
-  slug          String             @unique
-  type          String             // e.g., "Tennis", "Football"
+  slug          String      @unique
+  type          String // e.g., "Tennis", "Football"
   locationLabel String
   description   String?
-  basePrice     Decimal            @db.Decimal(12, 2)
-  latitude      Float?             // For "Courts Near Me" geo-search
-  longitude     Float?             // For "Courts Near Me" geo-search
-  status        CourtStatus        @default(PENDING_APPROVAL)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  
-  organizer     Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  basePrice     Decimal     @db.Decimal(12, 2)
+  latitude      Float? // For "Courts Near Me" geo-search
+  longitude     Float? // For "Courts Near Me" geo-search
+  status        CourtStatus @default(PENDING_APPROVAL)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  organizer     Organizer           @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   media         CourtMedia[]
-  amenities     Amenity[]          
+  amenities     Amenity[]
   slotTemplates CourtSlotTemplate[]
   bookings      Booking[]
   announcements Announcement[]
+  reviews       Review[]
 
   @@map("courts")
 }
@@ -44,14 +45,14 @@ model Amenity {
 }
 
 model CourtSlotTemplate {
-  id            String    @id @default(uuid()) @db.Uuid
-  courtId       String    @db.Uuid
-  dayOfWeek     Int       // 0-6
+  id            String   @id @default(uuid()) @db.Uuid
+  courtId       String   @db.Uuid
+  dayOfWeek     Int // 0-6
   startMinute   Int
   endMinute     Int
-  priceOverride Decimal?  @db.Decimal(12, 2)
-  isActive      Boolean   @default(true) // Toggle without deleting
-  court         Court     @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  priceOverride Decimal? @db.Decimal(12, 2)
+  isActive      Boolean  @default(true) // Toggle without deleting
+  court         Court    @relation(fields: [courtId], references: [id], onDelete: Cascade)
 
   @@map("court_slot_templates")
 }

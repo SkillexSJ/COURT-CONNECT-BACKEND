@@ -1,0 +1,25 @@
+model Review {
+  id          String  @id @default(uuid()) @db.Uuid
+  userId      String
+  courtId     String? @db.Uuid
+  organizerId String? @db.Uuid
+  rating      Int?
+  comment     String  @db.Text
+
+  parentId String?  @db.Uuid
+  parent   Review?  @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Review[] @relation("ReviewReplies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  court     Court?     @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  organizer Organizer? @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  @@index([courtId])
+  @@index([organizerId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("reviews")
+}

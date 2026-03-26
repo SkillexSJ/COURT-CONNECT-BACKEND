@@ -1,25 +1,26 @@
 model Organizer {
-  id              String   @id @default(uuid()) @db.Uuid
-  userId          String   @unique // 1-to-1 
-  
-  // Business Specific Fields
-  businessName    String
-  bio             String?
-  website         String?
-  phoneNumber     String?  // Business contact
-  address         String?
-  
-  // Verification & Payments
-  isVerified      Boolean  @default(false)
-  stripeAccountId String?  @unique // Used for sending them money
-  
-  // Relations
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courts          Court[]  // courts belong to the Organizer profile
-  announcements   Announcement[]
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique // 1-to-1 
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Business Specific Fields
+  businessName String
+  bio          String?
+  website      String?
+  phoneNumber  String? // Business contact
+  address      String?
+
+  // Verification & Payments
+  isVerified      Boolean @default(false)
+  stripeAccountId String? @unique // Used for sending them money
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courts        Court[] // courts belong to the Organizer profile
+  announcements Announcement[]
+  reviews       Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("organizers")
 }

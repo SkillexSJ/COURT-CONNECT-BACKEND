@@ -1,24 +1,25 @@
 model User {
-  id               String    @id @default(uuid())
-  email            String    @unique
-  emailVerified    Boolean   @default(false)
+  id               String     @id @default(uuid())
+  email            String     @unique
+  emailVerified    Boolean    @default(false)
   name             String
-  role             UserRole  @default(USER)
+  role             UserRole   @default(USER)
   phone            String?
   avatarUrl        String?
-  isApproved       Boolean   @default(false) // Admin approval gate for ORGANIZERs
-  stripeCustomerId String?   @unique
+  isApproved       Boolean    @default(false) // Admin approval gate for ORGANIZERs
+  stripeCustomerId String?    @unique
   organizerProfile Organizer?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
   deletedAt        DateTime?
 
   // Essential Relations
-  accounts         Account[]
-  sessions         Session[]
-  
+  accounts Account[]
+  sessions Session[]
+
   // Business Relations
-  bookings         Booking[] @relation("BookingUser")
+  bookings Booking[] @relation("BookingUser")
+  reviews  Review[]
 
   @@map("users")
 }
@@ -38,7 +39,7 @@ model Account {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, accountId])
   @@index([userId])
@@ -46,16 +47,16 @@ model Account {
 }
 
 model Session {
-  id         String   @id @default(uuid())
-  userId     String
-  token      String   @unique
-  expiresAt  DateTime
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("sessions")

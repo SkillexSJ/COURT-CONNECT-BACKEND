@@ -1,7 +1,6 @@
-
 generator client {
-  provider        = "prisma-client"
-  output          = "../../src/generated/prisma"
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
 }
 
 datasource db {
@@ -45,57 +44,50 @@ enum AnnouncementAudience {
   VENUE
 }
 
-
-
 // --- BUSINESS LOGIC MODELS ---
 
-
-
-
-
 model Coupon {
-  id                String       @id @default(uuid()) @db.Uuid
-  code              String       @unique // e.g., "WELCOME10"
-  discountType      DiscountType
-  discountValue     Decimal      @db.Decimal(12, 2)
-  
+  id            String       @id @default(uuid()) @db.Uuid
+  code          String       @unique // e.g., "WELCOME10"
+  discountType  DiscountType
+  discountValue Decimal      @db.Decimal(12, 2)
+
   // Constraints
-  minBookingAmount  Decimal?     @db.Decimal(12, 2) // "Only for bookings over 
-  maxDiscountAmount Decimal?     @db.Decimal(12, 2) // "Max discount  (for percentage)
-  usageLimit        Int?         // Total number of times this coupon can be used
-  usedCount         Int          @default(0)
-  
-  expiresAt         DateTime?
-  isActive          Boolean      @default(true)
-  createdAt         DateTime     @default(now())
+  minBookingAmount  Decimal? @db.Decimal(12, 2) // "Only for bookings over 
+  maxDiscountAmount Decimal? @db.Decimal(12, 2) // "Max discount  (for percentage)
+  usageLimit        Int? // Total number of times this coupon can be used
+  usedCount         Int      @default(0)
+
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
 
   // Relations
-  bookings          Booking[]    // Track which bookings used this coupon
+  bookings Booking[] // Track which bookings used this coupon
 
   @@map("coupons")
 }
 
 model Announcement {
-  id          String           @id @default(uuid()) @db.Uuid
-  title       String
-  content     String           @db.Text
-  type        AnnouncementType @default(INFO)
-  audience    AnnouncementAudience @default(HOME)
+  id            String               @id @default(uuid()) @db.Uuid
+  title         String
+  content       String               @db.Text
+  type          AnnouncementType     @default(INFO)
+  audience      AnnouncementAudience @default(HOME)
   createdByRole UserRole
-  organizerId String?          @db.Uuid
-  courtId     String?          @db.Uuid
-  imageUrl    String?
-  isPublished Boolean          @default(false)
-  publishedAt DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  organizerId   String?              @db.Uuid
+  courtId       String?              @db.Uuid
+  imageUrl      String?
+  isPublished   Boolean              @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
-  organizer   Organizer?       @relation(fields: [organizerId], references: [id], onDelete: SetNull)
-  court       Court?           @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  organizer Organizer? @relation(fields: [organizerId], references: [id], onDelete: SetNull)
+  court     Court?     @relation(fields: [courtId], references: [id], onDelete: SetNull)
 
   @@index([audience, isPublished])
   @@index([courtId, isPublished])
   @@index([organizerId, isPublished])
-
   @@map("announcements")
 }
