@@ -26,10 +26,15 @@ const BookingService = {
       throw new AppError(400, "At least one slot must be selected");
     }
 
-    const court = await prisma.court.findUnique({ where: { id: courtId } });
+    const court = await prisma.court.findUnique({
+      where: { id: courtId },
+      include: { organizer: true },
+    });
     if (!court) throw new AppError(404, "Court not found");
     if (court.status !== "ACTIVE")
       throw new AppError(400, "Court is not available for booking");
+    if (court.organizer.userId === userId)
+      throw new AppError(400, "You cannot book your own court");
 
     const targetDate = new Date(bookingDate);
 
