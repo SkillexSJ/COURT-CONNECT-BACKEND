@@ -215,6 +215,7 @@ const CouponService = {
   async validateCouponForBooking(
     code: string,
     bookingAmount: number,
+    userId: string,
   ): Promise<ValidateCouponResult> {
     const normalizedCode = normalizeCouponCode(code);
 
@@ -224,6 +225,19 @@ const CouponService = {
 
     if (!coupon) {
       throw new AppError(404, "Coupon not found");
+    }
+
+    const previousUsage = await prisma.booking.findFirst({
+      where: {
+        userId,
+        couponId: coupon.id,
+        status: { in: ["PAID", "COMPLETED"] },
+      },
+      select: { id: true },
+    });
+
+    if (previousUsage) {
+      throw new AppError(400, "You have already used this coupon for a previous booking.");
     }
 
     const numericBookingAmount = roundMoney(bookingAmount);

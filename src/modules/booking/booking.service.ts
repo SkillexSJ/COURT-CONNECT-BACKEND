@@ -86,6 +86,7 @@ const BookingService = {
       const couponResult = await CouponService.validateCouponForBooking(
         data.couponCode,
         subtotalAmount,
+        userId,
       );
 
       couponId = couponResult.coupon.id;

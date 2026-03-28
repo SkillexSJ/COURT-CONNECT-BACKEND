@@ -51,6 +51,7 @@ const CouponController: Record<
     const result = await CouponService.validateCouponForBooking(
       req.body.code,
       req.body.bookingAmount,
+      req.user!.id,
     );
 
     sendSuccess(
