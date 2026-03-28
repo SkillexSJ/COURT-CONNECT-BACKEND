@@ -209,7 +209,18 @@ const CourtService = {
       qb.addCondition({ organizerId: query.organizerId.trim() });
     }
 
-    const { where, orderBy, skip, take } = qb.build();
+    let { where, orderBy, skip, take } = qb.build();
+
+    // Custom sorting mapping Rating / Popularity
+    if (query.sortBy === "-rating" || query.sortBy === "rating") {
+      orderBy = [
+        {
+          bookings: {
+            _count: query.sortBy === "-rating" ? "desc" : "asc",
+          },
+        },
+      ] as any;
+    }
 
     const [courts, total] = await prisma.$transaction([
       prisma.court.findMany({
@@ -412,6 +423,33 @@ const CourtService = {
    * Get amenities list for organizer.
    */
   async getAmenities() {
+    // Auto-seed constant amenitie
+    const CORE_AMENITIES = [
+      { name: "Free WiFi", icon: "wifi" },
+      { name: "Parking", icon: "parking" },
+      { name: "Changing Room", icon: "shower" },
+      { name: "Cafe/Snacks", icon: "coffee" },
+      { name: "Equipment Rental", icon: "dumbbell" },
+      { name: "Wheelchair Access", icon: "accessibility" },
+    ];
+
+    const existingCoreCount = await prisma.amenity.count({
+      where: {
+        name: { in: CORE_AMENITIES.map((a) => a.name) },
+      },
+    });
+
+    // detecting hardcoded aminites
+    if (existingCoreCount < CORE_AMENITIES.length) {
+      for (const amenity of CORE_AMENITIES) {
+        await prisma.amenity.upsert({
+          where: { name: amenity.name },
+          update: {},
+          create: amenity,
+        });
+      }
+    }
+
     return prisma.amenity.findMany({
       orderBy: { name: "asc" },
       select: {
