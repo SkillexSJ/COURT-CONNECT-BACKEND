@@ -172,7 +172,7 @@ const CourtService = {
       maxLimit: 50,
     })
       .search(["name", "locationLabel", "type"])
-      .filter(["status", "type", "basePrice"])
+      .filter(["status", "type", "basePrice", "locationLabel"])
       .sort()
       .paginate();
 

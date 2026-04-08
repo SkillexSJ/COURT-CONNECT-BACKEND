@@ -203,7 +203,10 @@ export class QueryBuilder<
 
       if (operator) {
         this.whereConditions.push({
-          [fieldName]: { [operator]: value },
+          [fieldName]: { 
+            [operator]: value,
+            ...(operator === "contains" ? { mode: "insensitive" } : {})
+          },
         });
       } else {
         this.whereConditions.push({ [fieldName]: value });
